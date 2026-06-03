@@ -3,7 +3,8 @@ project(nockx-base)
 
 find_package(OpenSSL REQUIRED)
 
-add_library(nockx-base SHARED library.cpp)
+add_library(nockx-base SHARED library.cpp
+        aes_crypto.cpp)
 
 target_link_libraries(nockx-base PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 

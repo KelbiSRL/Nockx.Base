@@ -10,6 +10,11 @@
 #include <openssl/pem.h>
 #include <openssl/decoder.h>
 
+void init_secure_heap() {
+	if (CRYPTO_secure_malloc_init(65536, 16) != 1)
+		throw std::runtime_error("CRYPTO_secure_malloc_init failed");
+}
+
 unsigned char generate_key(const char *key_type) {
 	OpenSSL_add_all_algorithms();
 	ERR_load_crypto_strings();

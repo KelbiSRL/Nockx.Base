@@ -10,6 +10,8 @@
 #endif
 
 extern "C" {
+	EXPORT void init_secure_heap();
+
 	EXPORT unsigned char generate_key(const char *key_type);
 
 	EXPORT unsigned char get_key_sizes_from_file(const char *file_name, const char *key_type, int *public_key_size, int *private_key_size);
