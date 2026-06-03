@@ -17,7 +17,11 @@ public static class Cryptography {
 	public const int AesKeyLength = 32;
 	public const int RsaKeyLength = 256;
 	public const int KemEncapsulationLength = 1088;
-
+	
+	static Cryptography() {
+		Init.InitSecureHeap();
+	}
+	
 	public static void GenerateCombinedKeyFile() {
 		if (File.Exists("private_key.pem"))
 			throw new InvalidOperationException("Private key file already exists");
@@ -118,50 +122,5 @@ public static class Cryptography {
 	
 	public static string Md5Hash(string input) => MD5.HashData(Encoding.Default.GetBytes(input)).Aggregate(new StringBuilder(), (sb, cur) => sb.Append(cur.ToString("x2"))).ToString();
 	
-	// Here we get the more specific methods
 	
-	public static DecryptedMessage Decrypt(Message message, RsaKeyParameters privateKey, bool isOwnMessage) {
-		// Decrypt the AES key using RSA
-		byte[] aesKeyEncrypted = Convert.FromBase64String(isOwnMessage ? message.SenderEncryptedKey : message.ReceiverEncryptedKey);
-		
-		byte[] aesKey = DecryptAesKeyWithRsa(aesKeyEncrypted, privateKey);
-		
-		// Decrypt the message using AES
-		byte[] plainBytes = DecryptWithAes(Convert.FromBase64String(message.Body), aesKey);
-
-		string body = Encoding.UTF8.GetString(plainBytes, 0, plainBytes.Length);
-		return new DecryptedMessage { Id = message.Id, Body = body, Sender = message.Sender.ToBase64String(), DisplayName = message.SenderDisplayName, Timestamp = message.Timestamp};
-	}
-	
-	public static Message Encrypt(string inputText, RsaKeyParameters personalPublicKey, RsaKeyParameters foreignPublicKey, RsaKeyParameters privateKey, byte[]? aesKeyIn = null, byte[]? aesKeyOut = null) {
-		if (aesKeyIn != null && aesKeyIn.Length != AesKeyLength)
-			throw new ArgumentException($"{nameof(aesKeyIn)} has to be of length {AesKeyLength}", nameof(aesKeyIn));
-		
-		if (aesKeyOut != null && aesKeyOut.Length != AesKeyLength)
-			throw new ArgumentException($"{nameof(aesKeyOut)} has to be of length {AesKeyLength}", nameof(aesKeyOut));
-		
-		// Encrypt using AES
-		byte[] aesKey = aesKeyIn ?? GenerateAesKey();
-		if (aesKeyOut != null)
-			Buffer.BlockCopy(aesKey, 0, aesKeyOut, 0, AesKeyLength);
-
-		byte[] plainBytes = Encoding.UTF8.GetBytes(inputText);
-		byte[] cipherBytes = EncryptWithAes(plainBytes, plainBytes.Length, aesKey);
-		
-		// Encrypt the AES key using RSA
-		byte[] personalEncryptedKey = EncryptAesKeyWithRsa(aesKey, personalPublicKey);
-		
-		byte[] foreignEncryptedKey = EncryptAesKeyWithRsa(aesKey, foreignPublicKey);
-
-		long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-		return new Message {
-			Body = Convert.ToBase64String(cipherBytes),
-			SenderEncryptedKey = Convert.ToBase64String(personalEncryptedKey),
-			ReceiverEncryptedKey = Convert.ToBase64String(foreignEncryptedKey),
-			Timestamp = timestamp,
-			Signature = RsaCryptography.Sign(inputText + Convert.ToBase64String(aesKey) + foreignPublicKey.ToBase64String() + timestamp, privateKey),
-			Sender = personalPublicKey,
-			SenderDisplayName = ""
-		};
-	}
 }

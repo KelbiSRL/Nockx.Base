@@ -5,15 +5,15 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Version>0.5.0</Version>
-        <Authors>DemonExposer</Authors>
-        <Description>The underlying cryptography system + foundational classes for Nockx™</Description>
-        <RepositoryUrl>https://github.com/DemonExposer/Nockx.Base</RepositoryUrl>
+        <Authors>Kelbi S.R.L.</Authors>
+        <Description>The underlying cryptography system for Nockx™</Description>
+        <RepositoryUrl>https://gitlab.com/KelbiSRL/Nockx-Base</RepositoryUrl>
         <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
-        <PackageProjectUrl>https://github.com/DemonExposer/Nockx.Base</PackageProjectUrl>
+        <PackageProjectUrl>https://gitlab.com/KelbiSRL/Nockx-Base</PackageProjectUrl>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Title>Nockx.Base</Title>
-        <Copyright>Copyright (c) 2025 DemonExposer</Copyright>
+        <Copyright>Copyright (c) 2026 Kelbi S.R.L.</Copyright>
         <PackageIcon>nockx-logo.png</PackageIcon>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
@@ -21,10 +21,6 @@
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="" />
         <None Include="..\nockx-logo.png" Pack="true" PackagePath="" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.1" />
     </ItemGroup>
     
 </Project>
