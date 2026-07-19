@@ -1,11 +1,14 @@
 #include "aes_crypto.h"
 
-#include <cstdint>
 #include <stdexcept>
 #include <vector>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+
+#define IV_LEN 12
+#define AES_KEY_LEN 32
+#define TAG_LEN 16
 
 struct SecureKey {
 	uint8_t *data;
@@ -41,11 +44,21 @@ struct SecureKey {
 };
 
 struct AesKey {
-	SecureKey key, iv;
+	SecureKey key;
 
-	AesKey() : key(32), iv(12) {
-		if (RAND_bytes(key.data, key.len) != 1 || RAND_bytes(iv.data, iv.len) != 1)
+	AesKey() : key(AES_KEY_LEN) {
+		if (key.data == nullptr)
+			throw std::runtime_error("Key generation failed");
+
+		if (RAND_bytes(key.data, key.len) != 1)
 			throw std::runtime_error("RAND_bytes failed");
+	}
+
+	AesKey(const uint8_t *raw_key) : key(AES_KEY_LEN) {
+		if (key.data == nullptr)
+			throw std::runtime_error("Key generation failed");
+
+		memcpy(key.data, raw_key, AES_KEY_LEN);
 	}
 };
 
@@ -61,7 +74,11 @@ void destroy_aes_key(const AesKey *aes_key) {
 	delete aes_key;
 }
 
-uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_len, const AesKey *aes_key, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *ciphertext) {
+uint8_t generate_iv(uint8_t *iv) {
+	return RAND_bytes(iv, IV_LEN);
+}
+
+uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *ciphertext) {
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
@@ -83,13 +100,13 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 		return 0;
 	}
 
-	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1) {
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
 	}
 
-	if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, aes_key->iv.data) != 1) {
+	if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
@@ -117,8 +134,8 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 	}
 	total += len;
 
-	std::vector<uint8_t> tag(16);
-	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag.data()) != 1) {
+	std::vector<uint8_t> tag(TAG_LEN);
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN, tag.data()) != 1) {
 		fprintf(stderr, "Failed to get tag:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
@@ -129,7 +146,7 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 	return 1;
 }
 
-uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *plaintext) {
+uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *plaintext) {
 	if (ciphertext_len < 16) {
 		fprintf(stderr, "Ciphertext too short\n");
 		return 0;
@@ -156,13 +173,13 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 		return 0;
 	}
 
-	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1) {
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
 	}
 
-	if (EVP_DecryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, aes_key->iv.data) != 1) {
+	if (EVP_DecryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
@@ -175,7 +192,7 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 		return 0;
 	}
 
-	const size_t actual_ciphertext_len = ciphertext_len - 16;
+	const size_t actual_ciphertext_len = ciphertext_len - TAG_LEN;
 	if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, static_cast<int>(actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to decrypt:\n");
 		ERR_print_errors_fp(stderr);
@@ -183,7 +200,7 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 	}
 
 	const int total = len;
-	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, const_cast<uint8_t *>(ciphertext + actual_ciphertext_len)) != 1) {
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, const_cast<uint8_t *>(ciphertext + actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to set tag:\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
@@ -197,4 +214,33 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 	}
 
 	return 1;
+}
+
+uint8_t wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret, uint8_t *wrapped_key) {
+	try {
+		const AesKey shared_secret_key(shared_secret);
+
+		uint8_t iv[12];
+		if (generate_iv(iv) != 1) {
+			fprintf(stderr, "RAND_bytes failed\n");
+			return 0;
+		}
+
+		memcpy(wrapped_key, iv, IV_LEN);
+		return encrypt_with_aes_gcm(aes_key->key.data, aes_key->key.len, &shared_secret_key, iv, nullptr, 0, wrapped_key + IV_LEN);
+	} catch (...) {
+		return 0;
+	}
+}
+
+uint8_t unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret, const AesKey *unwrapped_key) {
+	try {
+		const AesKey shared_secret_key(shared_secret);
+
+		uint8_t iv[12];
+		memcpy(iv, wrapped_key, IV_LEN);
+		return decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, unwrapped_key->key.data);
+	} catch (...) {
+		return 0;
+	}
 }
