@@ -1,5 +1,7 @@
 #include "aes_crypto.h"
 
+#include "secure_key.h"
+
 #include <stdexcept>
 #include <vector>
 #include <openssl/crypto.h>
@@ -10,54 +12,17 @@
 #define AES_KEY_LEN 32
 #define TAG_LEN 16
 
-struct SecureKey {
-	uint8_t *data;
-	int len;
-
-	SecureKey(const int n) : len(n) {
-		data = static_cast<uint8_t *>(CRYPTO_secure_malloc(n, __FILE__, __LINE__));
-	}
-
-	~SecureKey() {
-		CRYPTO_secure_clear_free(data, len, __FILE__, __LINE__);
-	}
-
-	SecureKey(const SecureKey &) = delete;
-	SecureKey & operator=(const SecureKey &) = delete;
-
-	SecureKey(SecureKey &&other) noexcept : data(other.data), len(other.len) {
-		other.data = nullptr;
-		other.len = 0;
-	}
-
-	SecureKey & operator=(SecureKey &&other) noexcept {
-		if (this != &other) {
-			CRYPTO_secure_clear_free(data, len, __FILE__, __LINE__);
-			data = other.data;
-			len = other.len;
-			other.data = nullptr;
-			other.len = 0;
-		}
-
-		return *this;
-	}
-};
-
 struct AesKey {
 	SecureKey key;
 
+	// This constructor should always be called with a try/catch statement because key(AES_KEY_LEN) and itself could throw an exception, which could otherwise cause a segfault downstream
 	AesKey() : key(AES_KEY_LEN) {
-		if (key.data == nullptr)
-			throw std::runtime_error("Key generation failed");
-
 		if (RAND_bytes(key.data, key.len) != 1)
 			throw std::runtime_error("RAND_bytes failed");
 	}
 
+	// This constructor should always be called with a try/catch statement because key(AES_KEY_LEN) could throw an exception, which could otherwise cause a segfault downstream
 	AesKey(const uint8_t *raw_key) : key(AES_KEY_LEN) {
-		if (key.data == nullptr)
-			throw std::runtime_error("Key generation failed");
-
 		memcpy(key.data, raw_key, AES_KEY_LEN);
 	}
 };
@@ -216,6 +181,7 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 	return 1;
 }
 
+// Fills wrapped_key with 60 bytes (12 byte IV, 32 byte AES key, 16 byte tag)
 uint8_t wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret, uint8_t *wrapped_key) {
 	try {
 		const AesKey shared_secret_key(shared_secret);

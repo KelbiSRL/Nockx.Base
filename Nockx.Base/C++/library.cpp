@@ -1,14 +1,29 @@
 #include "library.h"
 
+#include "aes_crypto.h"
+#include "secure_key.h"
+
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <cctype>
 
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/decoder.h>
+
+#define WRAPPED_KEY_LEN 60
+
+struct AsymmetricKey {
+	SecureKey key;
+	std::string type;
+
+	// This constructor should always be called with a try/catch statement because key(der_len) could throw an exception, which could otherwise cause a segfault downstream
+	AsymmetricKey(const std::string &key_type, const uint8_t *der_bytes, const int der_len) : key(der_len) {
+		memcpy(key.data, der_bytes, der_len);
+		type = key_type;
+	}
+};
 
 void init_secure_heap() {
 	if (CRYPTO_secure_malloc_init(65536, 16) != 1)
@@ -80,12 +95,12 @@ unsigned char get_key_sizes_from_file(const char *file_name, const char *key_typ
 	return 1;
 }
 
-unsigned char read_key_from_file(const char *file_name, const char *key_type, unsigned char *public_key, unsigned char *private_key) {
+AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	BIO *bio = BIO_new_file(file_name, "r");
 	if (!bio) {
 		fprintf(stderr, "Error opening private key file:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	EVP_PKEY *key = nullptr;
@@ -98,18 +113,32 @@ unsigned char read_key_from_file(const char *file_name, const char *key_type, un
 		EVP_PKEY_free(candidate);
 	}
 
+	BIO_free(bio);
+
 	if (!key) {
 		fprintf(stderr, "Error reading key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
-	i2d_PrivateKey(key, &private_key);
-	i2d_PUBKEY(key, &public_key);
+	uint8_t *der_bytes = nullptr;
+	int der_len = i2d_PrivateKey(key, &der_bytes);
 	EVP_PKEY_free(key);
-	BIO_free(bio);
+	if (der_len <= 0) {
+		fprintf(stderr, "Error converting private key to DER:\n");
+		ERR_print_errors_fp(stderr);
+		return nullptr;
+	}
 
-	return 1;
+	AsymmetricKey *asymmetric_key;
+	try {
+		asymmetric_key = new AsymmetricKey(key_type, der_bytes, der_len);
+	} catch (...) {
+		asymmetric_key = nullptr;
+	}
+
+	OPENSSL_clear_free(der_bytes, der_len);
+	return asymmetric_key;
 }
 
 unsigned char get_public_key_size_from_string(const char *input, const char *key_type, int *public_key_size) {
@@ -213,7 +242,7 @@ unsigned char get_ciphertext_and_shared_secret_length(const unsigned char *publi
 	return 1;
 }
 
-unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const unsigned char *aes_key, unsigned char *wrapped_encrypted_aes_key, const unsigned int wrapped_encrypted_aes_key_length, const unsigned int shared_secret_length) {
+unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const AesKey *aes_key, unsigned char *wrapped_encrypted_aes_key, const unsigned int wrapped_encrypted_aes_key_length, const unsigned int shared_secret_length) {
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
@@ -237,11 +266,11 @@ unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, c
 		return 0;
 	}
 
-	// - 32 because of the AES key size of 256 bits
-	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(wrapped_encrypted_aes_key_length - 32));
+	// - 60 because of the wrapped AES key (see wrap_aes_key_with_aes_gcm in aes_crypto.cpp) which will be added before the encapsulated shared secret
+	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN));
 	auto shared_secret = static_cast<unsigned char *>(OPENSSL_malloc(shared_secret_length));
 
-	size_t ct_length = wrapped_encrypted_aes_key_length - 32;
+	size_t ct_length = wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN;
 	size_t ss_length = shared_secret_length;
 
 	if (EVP_PKEY_encapsulate(ctx, ciphertext, &ct_length, shared_secret, &ss_length) <= 0) {
@@ -254,7 +283,7 @@ unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, c
 		return 0;
 	}
 
-	if (wrapped_encrypted_aes_key_length - 32 != ct_length || shared_secret_length != ss_length) {
+	if (wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN != ct_length || shared_secret_length != ss_length) {
 		fprintf(stderr, "Ciphertext and shared secret length mismatch!\n");
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
@@ -263,8 +292,7 @@ unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, c
 		return 0;
 	}
 
-	for (int i = 0; i < 32; i++)
-		wrapped_encrypted_aes_key[i] = aes_key[i] ^ shared_secret[i];
+	wrap_aes_key_with_aes_gcm(aes_key, shared_secret, wrapped_encrypted_aes_key);
 
 	for (int i = 32; i < wrapped_encrypted_aes_key_length; i++)
 		wrapped_encrypted_aes_key[i] = ciphertext[i - 32];

@@ -9,6 +9,8 @@
 #define EXPORT
 #endif
 
+struct AsymmetricKey;
+
 extern "C" {
 	EXPORT void init_secure_heap();
 
@@ -16,7 +18,7 @@ extern "C" {
 
 	EXPORT unsigned char get_key_sizes_from_file(const char *file_name, const char *key_type, int *public_key_size, int *private_key_size);
 
-	EXPORT unsigned char read_key_from_file(const char *file_name, const char *key_type, unsigned char *public_key, unsigned char *private_key);
+	EXPORT AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type);
 
 	EXPORT unsigned char get_public_key_size_from_string(const char *input, const char *key_type, int *public_key_size);
 
