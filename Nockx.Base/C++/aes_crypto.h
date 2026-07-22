@@ -25,6 +25,6 @@ extern "C" {
 
 uint8_t wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret, uint8_t *wrapped_key);
 
-uint8_t unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret, const AesKey *unwrapped_key);
+AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret);
 
 #endif //NOCKX_BASE_AES_CRYPTO_H

@@ -199,14 +199,15 @@ uint8_t wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_s
 	}
 }
 
-uint8_t unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret, const AesKey *unwrapped_key) {
+AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret) {
 	try {
+		auto *unwrapped_key = new AesKey();
 		const AesKey shared_secret_key(shared_secret);
 
 		uint8_t iv[12];
 		memcpy(iv, wrapped_key, IV_LEN);
-		return decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, unwrapped_key->key.data);
+		return decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, unwrapped_key->key.data) ? unwrapped_key : nullptr;
 	} catch (...) {
-		return 0;
+		return nullptr;
 	}
 }

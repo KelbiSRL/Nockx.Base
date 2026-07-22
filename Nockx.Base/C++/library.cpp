@@ -25,6 +25,10 @@ struct AsymmetricKey {
 	}
 };
 
+void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key) {
+	delete asymmetric_key;
+}
+
 void init_secure_heap() {
 	if (CRYPTO_secure_malloc_init(65536, 16) != 1)
 		throw std::runtime_error("CRYPTO_secure_malloc_init failed");
@@ -59,38 +63,6 @@ unsigned char generate_key(const char *key_type) {
 
 	fclose(file);
 	EVP_PKEY_free(key);
-
-	return 1;
-}
-
-unsigned char get_key_sizes_from_file(const char *file_name, const char *key_type, int *public_key_size, int *private_key_size) {
-	BIO *bio = BIO_new_file(file_name, "r");
-	if (!bio) {
-		fprintf(stderr, "Error opening private key file:\n");
-		ERR_print_errors_fp(stderr);
-		return 0;
-	}
-
-	EVP_PKEY *key = nullptr;
-	EVP_PKEY *candidate = nullptr;
-	while ((candidate = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr)) != nullptr) {
-		if (strcmp(EVP_PKEY_get0_type_name(candidate), key_type) == 0) {
-			key = candidate;
-			break;
-		}
-		EVP_PKEY_free(candidate);
-	}
-
-	if (!key) {
-		fprintf(stderr, "Error reading key:\n");
-		ERR_print_errors_fp(stderr);
-		return 0;
-	}
-
-	*private_key_size = i2d_PrivateKey(key, nullptr);
-	*public_key_size = i2d_PUBKEY(key, nullptr);
-	EVP_PKEY_free(key);
-	BIO_free(bio);
 
 	return 1;
 }
@@ -305,17 +277,25 @@ unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, c
 	return 1;
 }
 
-unsigned char decrypt_aes_key_with_ml_kem(const unsigned char *private_kem_key, uint64_t kem_key_size, const unsigned char *ciphertext, const unsigned int ciphertext_length, unsigned char *decrypted_aes_key) {
+AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_length) {
+	const char *REQUIRED_KEY_TYPE = "ML-KEM-768";
+
+	if (private_kem_key->type != REQUIRED_KEY_TYPE) {
+		fprintf(stderr, "Key has to be of type %s, but is of type %s\n", REQUIRED_KEY_TYPE, private_kem_key->type.c_str());
+		return nullptr;
+	}
+
 	EVP_PKEY *parsed_key = nullptr;
 	OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&parsed_key, "DER", nullptr, "ML-KEM-768", OSSL_KEYMGMT_SELECT_PRIVATE_KEY, nullptr, nullptr);
-	size_t key_size_t = kem_key_size;
-	OSSL_DECODER_from_data(dctx, &private_kem_key, &key_size_t);
+	const unsigned char *key = private_kem_key->key.data;
+	size_t key_length = private_kem_key->key.len;
+	OSSL_DECODER_from_data(dctx, &key, &key_length);
 	OSSL_DECODER_CTX_free(dctx);
 
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
@@ -323,7 +303,7 @@ unsigned char decrypt_aes_key_with_ml_kem(const unsigned char *private_kem_key, 
 		fprintf(stderr, "Failed to create context:\n");
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_PKEY_decapsulate_init(ctx, nullptr) <= 0) {
@@ -331,43 +311,54 @@ unsigned char decrypt_aes_key_with_ml_kem(const unsigned char *private_kem_key, 
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	size_t ss_length;
-	std::vector<unsigned char> encrypted_aes_key(ciphertext, ciphertext + 32);
-	std::vector<unsigned char> true_ciphertext(ciphertext + 32, ciphertext + ciphertext_length);
+	std::vector true_ciphertext(ciphertext + WRAPPED_KEY_LEN, ciphertext + ciphertext_length);
 	if (EVP_PKEY_decapsulate(ctx, nullptr, &ss_length, true_ciphertext.data(), true_ciphertext.size()) <= 0) {
 		fprintf(stderr, "Failed to decapsulate (size check):\n");
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	std::vector<uint8_t> shared_secret(ss_length);
 	if (EVP_PKEY_decapsulate(ctx, shared_secret.data(), &ss_length, true_ciphertext.data(), true_ciphertext.size()) <= 0) {
 		fprintf(stderr, "Failed to decapsulate:\n");
 		ERR_print_errors_fp(stderr);
+		OPENSSL_cleanse(shared_secret.data(), shared_secret.size());
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(parsed_key);
 
-	for (int i = 0; i < shared_secret.size(); i++)
-		decrypted_aes_key[i] = shared_secret[i] ^ encrypted_aes_key[i];
+	AesKey *unwrapped_key = unwrap_aes_key_with_aes_gcm(ciphertext, shared_secret.data());
+	OPENSSL_cleanse(shared_secret.data(), shared_secret.size());
 
-	return 1;
+	if (!unwrapped_key)
+		fprintf(stderr, "Failed to unwrap AES key\n");
+
+	return unwrapped_key;
 }
 
-unsigned char get_signature_size(const unsigned char *private_key, const uint64_t key_size, const unsigned char *data, const uint64_t data_size, uint64_t *signature_size) {
+unsigned char get_signature_size(const AsymmetricKey *private_key, const unsigned char *data, const uint64_t data_size, uint64_t *signature_size) {
+	const char *REQUIRED_KEY_TYPE = "ML-DSA-65";
+
+	if (private_key->type != REQUIRED_KEY_TYPE) {
+		fprintf(stderr, "Key has to be of type %s, but is of type %s\n", REQUIRED_KEY_TYPE, private_key->type.c_str());
+		return 0;
+	}
+
 	EVP_PKEY *parsed_key = nullptr;
-	OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&parsed_key, "DER", nullptr, "ML-DSA-65", OSSL_KEYMGMT_SELECT_PRIVATE_KEY, nullptr, nullptr);
-	size_t key_size_t = key_size;
-	OSSL_DECODER_from_data(dctx, &private_key, &key_size_t);
+	OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&parsed_key, "DER", nullptr, REQUIRED_KEY_TYPE, OSSL_KEYMGMT_SELECT_PRIVATE_KEY, nullptr, nullptr);
+	const unsigned char *key = private_key->key.data;
+	size_t key_length = private_key->key.len;
+	OSSL_DECODER_from_data(dctx, &key, &key_length);
 	OSSL_DECODER_CTX_free(dctx);
 
 	if (!parsed_key) {
@@ -409,11 +400,19 @@ unsigned char get_signature_size(const unsigned char *private_key, const uint64_
 	return 1;
 }
 
-unsigned char sign_with_ml_dsa(const unsigned char *private_key, const uint64_t key_size, const unsigned char *data, const uint64_t data_size, unsigned char *signature, uint64_t *signature_size) {
+unsigned char sign_with_ml_dsa(const AsymmetricKey *private_key, const unsigned char *data, const uint64_t data_size, unsigned char *signature, uint64_t *signature_size) {
+	const char *REQUIRED_KEY_TYPE = "ML-DSA-65";
+
+	if (private_key->type != REQUIRED_KEY_TYPE) {
+		fprintf(stderr, "Key has to be of type %s, but is of type %s\n", REQUIRED_KEY_TYPE, private_key->type.c_str());
+		return 0;
+	}
+
 	EVP_PKEY *parsed_key = nullptr;
-	OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&parsed_key, "DER", nullptr, "ML-DSA-65", OSSL_KEYMGMT_SELECT_PRIVATE_KEY, nullptr, nullptr);
-	size_t key_size_t = key_size;
-	OSSL_DECODER_from_data(dctx, &private_key, &key_size_t);
+	OSSL_DECODER_CTX *dctx = OSSL_DECODER_CTX_new_for_pkey(&parsed_key, "DER", nullptr, REQUIRED_KEY_TYPE, OSSL_KEYMGMT_SELECT_PRIVATE_KEY, nullptr, nullptr);
+	const unsigned char *key = private_key->key.data;
+	size_t key_length = private_key->key.len;
+	OSSL_DECODER_from_data(dctx, &key, &key_length);
 	OSSL_DECODER_CTX_free(dctx);
 
 	if (!parsed_key) {
