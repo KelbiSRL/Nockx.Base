@@ -113,6 +113,40 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	return asymmetric_key;
 }
 
+unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_key_size) {
+	if (!private_key) {
+		fprintf(stderr, "Key is null\n");
+		return nullptr;
+	}
+
+	int nid = OBJ_txt2nid(private_key->type.c_str());
+	if (nid == NID_undef) {
+		fprintf(stderr, "Unrecognized key type: %s\n", private_key->type.c_str());
+		return nullptr;
+	}
+
+	const uint8_t *private_key_pointer = private_key->key.data;
+	EVP_PKEY *pkey = d2i_PrivateKey(nid, nullptr, &private_key_pointer, private_key->key.len);
+	if (!pkey) {
+		fprintf(stderr, "Error reconstructing private key:\n");
+		ERR_print_errors_fp(stderr);
+		return nullptr;
+	}
+
+	uint8_t *public_key = nullptr;
+	*public_key_size = i2d_PUBKEY(pkey, &public_key);
+	if (*public_key_size <= 0) {
+		EVP_PKEY_free(pkey);
+		fprintf(stderr, "Error extracting public key:\n");
+		ERR_print_errors_fp(stderr);
+		return nullptr;
+	}
+
+	EVP_PKEY_free(pkey);
+
+	return public_key;
+}
+
 unsigned char get_public_key_size_from_string(const char *input, const char *key_type, int *public_key_size) {
 	BIO *bio = BIO_new_mem_buf(input, static_cast<int>(strlen(input)));
 	if (!bio) {

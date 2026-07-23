@@ -21,6 +21,8 @@ extern "C" {
 
 	EXPORT AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type);
 
+	EXPORT unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_key_size);
+
 	EXPORT unsigned char get_public_key_size_from_string(const char *input, const char *key_type, int *public_key_size);
 
 	EXPORT unsigned char read_public_key_from_string(const char *input, const char *key_type, unsigned char *public_key);
