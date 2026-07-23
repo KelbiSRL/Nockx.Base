@@ -2,6 +2,7 @@
 #define NOCKX_BASE_CPP_LIBRARY_H
 
 #include <cstdint>
+#include <cstddef>
 
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
@@ -16,6 +17,8 @@ extern "C" {
 	EXPORT void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key);
 
 	EXPORT void init_secure_heap();
+
+	EXPORT void free_pointer(void *ptr);
 
 	EXPORT unsigned char generate_key(const char *key_type);
 

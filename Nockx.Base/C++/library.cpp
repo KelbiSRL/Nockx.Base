@@ -34,11 +34,16 @@ void init_secure_heap() {
 		throw std::runtime_error("CRYPTO_secure_malloc_init failed");
 }
 
+void free_pointer(void *ptr) {
+	free(ptr);
+}
+
 unsigned char generate_key(const char *key_type) {
 	OpenSSL_add_all_algorithms();
 	ERR_load_crypto_strings();
 
-	EVP_PKEY *key = EVP_PKEY_Q_keygen(nullptr, nullptr, key_type);
+	std::string key_type_str(key_type);
+	EVP_PKEY *key = key_type_str != "RSA" ? EVP_PKEY_Q_keygen(nullptr, nullptr, key_type) : EVP_PKEY_Q_keygen(nullptr, nullptr, key_type, 2048);
 
 	if (!key) {
 		fprintf(stderr, "Error generating key:\n");
@@ -46,7 +51,6 @@ unsigned char generate_key(const char *key_type) {
 		return 0;
 	}
 
-	std::string key_type_str(key_type);
 	std::ranges::transform(key_type_str, key_type_str.begin(), tolower);
 	FILE *file = fopen((key_type_str + std::string("_private_key.pem")).c_str(), "w");
 	if (!file) {

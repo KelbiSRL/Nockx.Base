@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <openssl/crypto.h>
+#include <cstddef>
 
 struct SecureKey {
 	uint8_t *data;

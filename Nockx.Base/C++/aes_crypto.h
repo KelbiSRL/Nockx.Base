@@ -2,6 +2,7 @@
 #define NOCKX_BASE_AES_CRYPTO_H
 
 #include <cstdint>
+#include <cstddef>
 
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
