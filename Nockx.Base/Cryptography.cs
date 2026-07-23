@@ -1,11 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Nockx.Base.ClassExtensions;
 using Nockx.Base.CryptographyTypes;
-using Nockx.Base.Util;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.OpenSsl;
+using Nockx.Base.CryptographyTypes.Rsa;
 
 namespace Nockx.Base;
 
@@ -29,7 +25,7 @@ public static class Cryptography {
 		if (!GenerateKey(MlKem768) || !GenerateKey(MlDsa65))
 			throw new Exception("Key generation failed"); 
 		
-		GenerateRsaKey("private_rsa_key.pem", "public_rsa_key.pem");
+		GenerateRsaKey();
 
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlKem768.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlDsa65.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
@@ -51,76 +47,76 @@ public static class Cryptography {
 	
 	public static byte[] DecryptAesKeyWithMlKem(byte[] ciphertext, byte[] privateKemKey) => MlKemCryptography.DecryptAesKey(ciphertext, privateKemKey);
 	
-	public static byte[] GenerateAesKey() => AesCryptography.GenerateKey();
-	
-	public static byte[] EncryptWithAes(byte[] data, int inputLength, byte[] aesKey) => AesCryptography.Encrypt(data, inputLength, aesKey);
-	
-	public static byte[] DecryptWithAes(byte[] data, byte[] aesKey) => AesCryptography.Decrypt(data, aesKey);
+	// public static byte[] GenerateAesKey() => AesCryptography.GenerateKey();
+	//
+	// public static byte[] EncryptWithAes(byte[] data, int inputLength, byte[] aesKey) => AesCryptography.Encrypt(data, inputLength, aesKey);
+	//
+	// public static byte[] DecryptWithAes(byte[] data, byte[] aesKey) => AesCryptography.Decrypt(data, aesKey);
 
-	public static (RsaKeyParameters, RsaKeyParameters) GenerateRsaKey(string privateKeyFile = "private_key.pem", string publicKeyFile = "public_key.pem") => RsaCryptography.GenerateKey(privateKeyFile, publicKeyFile);
+	public static bool GenerateRsaKey() => RsaCryptography.GenerateKey();
 	
-	public static byte[] EncryptAesKeyWithRsa(byte[] aesKey, RsaKeyParameters rsaPublicKey) => RsaCryptography.EncryptAesKey(aesKey, rsaPublicKey);
+	public static RsaKey ReadRsaKeyFromFile(string fileName) => RsaCryptography.ReadKeyFromFile(fileName);
 	
-	public static byte[] DecryptAesKeyWithRsa(byte[] encryptedAesKey, RsaKeyParameters rsaPrivateKey) => RsaCryptography.DecryptAesKey(encryptedAesKey, rsaPrivateKey);
-	
-	public static string SignWithRsa(string text, RsaKeyParameters privateKey) => RsaCryptography.Sign(text, privateKey);
-
-	public static bool VerifyWithRsa(string text, string signature, RsaKeyParameters publicKey) => RsaCryptography.Verify(text, signature, publicKey);
+	// public static byte[] EncryptAesKeyWithRsa(byte[] aesKey, RsaKeyParameters rsaPublicKey) => RsaCryptography.EncryptAesKey(aesKey, rsaPublicKey);
+	//
+	// public static byte[] DecryptAesKeyWithRsa(byte[] encryptedAesKey, RsaKeyParameters rsaPrivateKey) => RsaCryptography.DecryptAesKey(encryptedAesKey, rsaPrivateKey);
+	//
+	// public static string SignWithRsa(string text, RsaKeyParameters privateKey) => RsaCryptography.Sign(text, privateKey);
+	//
+	// public static bool VerifyWithRsa(string text, string signature, RsaKeyParameters publicKey) => RsaCryptography.Verify(text, signature, publicKey);
 
 	public static string SignWithMlDsa(string text, byte[] dsaPrivateKey) => Convert.ToBase64String(MlDsaCryptography.Sign(Encoding.UTF8.GetBytes(text), dsaPrivateKey));
 	
 	public static bool VerifyWithMlDsa(string text, string signature, byte[] dsaPublicKey) => MlDsaCryptography.Verify(Encoding.UTF8.GetBytes(text), Convert.FromBase64String(signature), dsaPublicKey);
 
-	public static byte[] EncryptBytes(byte[] input, RsaKeyParameters foreignRsaPublicKey, byte[] foreignKemPublicKey) {
-		byte[] aesKey = GenerateAesKey();
-
-		byte[] cipherBytes = EncryptWithAes(input, input.Length, aesKey);
-		byte[] encryptedAesKey = EncryptAesKeyWithMlKem(aesKey, foreignKemPublicKey);
-		byte[] doubleEncryptedAesKey = EncryptAesKeyWithRsa(encryptedAesKey[..AesKeyLength], foreignRsaPublicKey);
-
-		byte[] output = new byte[doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength + cipherBytes.Length];
-		Buffer.BlockCopy(doubleEncryptedAesKey, 0, output, 0, doubleEncryptedAesKey.Length);
-		Buffer.BlockCopy(encryptedAesKey, AesKeyLength, output, doubleEncryptedAesKey.Length, encryptedAesKey.Length - AesKeyLength);
-		Buffer.BlockCopy(cipherBytes, 0, output, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes.Length);
-		
-		return output;
-	}
-	
-	public static byte[] DecryptBytes(byte[] input, RsaKeyParameters rsaPrivateKey, byte[] kemPrivateKey) {
-		byte[] doubleEncryptedAesKey = new byte[RsaKeyLength];
-		byte[] encryptedAesKey = new byte[AesKeyLength + KemEncapsulationLength];
-		byte[] cipherBytes = new byte[input.Length - doubleEncryptedAesKey.Length - KemEncapsulationLength];
-		
-		Buffer.BlockCopy(input, 0, doubleEncryptedAesKey, 0, doubleEncryptedAesKey.Length);
-		Buffer.BlockCopy(input, doubleEncryptedAesKey.Length, encryptedAesKey, AesKeyLength, KemEncapsulationLength);
-		Buffer.BlockCopy(input, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes, 0, cipherBytes.Length);
-
-		byte[] singleDecryptedAesKey = DecryptAesKeyWithRsa(doubleEncryptedAesKey, rsaPrivateKey);
-		Buffer.BlockCopy(singleDecryptedAesKey, 0, encryptedAesKey, 0, AesKeyLength);
-		byte[] fullyDecryptedAesKey = DecryptAesKeyWithMlKem(encryptedAesKey, kemPrivateKey);
-		byte[] plainBytes = DecryptWithAes(cipherBytes, fullyDecryptedAesKey);
-		
-		return plainBytes;
-	}
-
-	public static string Sign(string text, RsaKeyParameters rsaPrivateKey, byte[] dsaPrivateKey) => $"{SignWithRsa(text, rsaPrivateKey)}-{SignWithMlDsa(text, dsaPrivateKey)}";
-
-	public static bool Verify(string text, string signature, RsaKeyParameters rsaPublicKey, byte[] dsaPublicKey) {
-		string[] signatures = signature.Split('-');
-		return VerifyWithRsa(text, signatures[0], rsaPublicKey) && VerifyWithMlDsa(text, signatures[1], dsaPublicKey);
-	}
-
-	public static (RsaKeyParameters, RsaKeyParameters) ImportRsaKey(string file) {
-		RsaKeyParameters privateKey;
-		using (StreamReader reader = File.OpenText(file)) {
-			PemReader pemReader = new (reader);
-			privateKey = (RsaKeyParameters) ((AsymmetricCipherKeyPair) pemReader.ReadObject()).Private;
-		}
-
-		return (privateKey, new RsaKeyParameters(false, privateKey.Modulus, RsaCryptography.RsaKeyExponent));
-	}
+	// public static byte[] EncryptBytes(byte[] input, RsaKeyParameters foreignRsaPublicKey, byte[] foreignKemPublicKey) {
+	// 	byte[] aesKey = GenerateAesKey();
+	//
+	// 	byte[] cipherBytes = EncryptWithAes(input, input.Length, aesKey);
+	// 	byte[] encryptedAesKey = EncryptAesKeyWithMlKem(aesKey, foreignKemPublicKey);
+	// 	byte[] doubleEncryptedAesKey = EncryptAesKeyWithRsa(encryptedAesKey[..AesKeyLength], foreignRsaPublicKey);
+	//
+	// 	byte[] output = new byte[doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength + cipherBytes.Length];
+	// 	Buffer.BlockCopy(doubleEncryptedAesKey, 0, output, 0, doubleEncryptedAesKey.Length);
+	// 	Buffer.BlockCopy(encryptedAesKey, AesKeyLength, output, doubleEncryptedAesKey.Length, encryptedAesKey.Length - AesKeyLength);
+	// 	Buffer.BlockCopy(cipherBytes, 0, output, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes.Length);
+	// 	
+	// 	return output;
+	// }
+	//
+	// public static byte[] DecryptBytes(byte[] input, RsaKeyParameters rsaPrivateKey, byte[] kemPrivateKey) {
+	// 	byte[] doubleEncryptedAesKey = new byte[RsaKeyLength];
+	// 	byte[] encryptedAesKey = new byte[AesKeyLength + KemEncapsulationLength];
+	// 	byte[] cipherBytes = new byte[input.Length - doubleEncryptedAesKey.Length - KemEncapsulationLength];
+	// 	
+	// 	Buffer.BlockCopy(input, 0, doubleEncryptedAesKey, 0, doubleEncryptedAesKey.Length);
+	// 	Buffer.BlockCopy(input, doubleEncryptedAesKey.Length, encryptedAesKey, AesKeyLength, KemEncapsulationLength);
+	// 	Buffer.BlockCopy(input, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes, 0, cipherBytes.Length);
+	//
+	// 	byte[] singleDecryptedAesKey = DecryptAesKeyWithRsa(doubleEncryptedAesKey, rsaPrivateKey);
+	// 	Buffer.BlockCopy(singleDecryptedAesKey, 0, encryptedAesKey, 0, AesKeyLength);
+	// 	byte[] fullyDecryptedAesKey = DecryptAesKeyWithMlKem(encryptedAesKey, kemPrivateKey);
+	// 	byte[] plainBytes = DecryptWithAes(cipherBytes, fullyDecryptedAesKey);
+	// 	
+	// 	return plainBytes;
+	// }
+	//
+	// public static string Sign(string text, RsaKeyParameters rsaPrivateKey, byte[] dsaPrivateKey) => $"{SignWithRsa(text, rsaPrivateKey)}-{SignWithMlDsa(text, dsaPrivateKey)}";
+	//
+	// public static bool Verify(string text, string signature, RsaKeyParameters rsaPublicKey, byte[] dsaPublicKey) {
+	// 	string[] signatures = signature.Split('-');
+	// 	return VerifyWithRsa(text, signatures[0], rsaPublicKey) && VerifyWithMlDsa(text, signatures[1], dsaPublicKey);
+	// }
+	//
+	// public static (RsaKeyParameters, RsaKeyParameters) ImportRsaKey(string file) {
+	// 	RsaKeyParameters privateKey;
+	// 	using (StreamReader reader = File.OpenText(file)) {
+	// 		PemReader pemReader = new (reader);
+	// 		privateKey = (RsaKeyParameters) ((AsymmetricCipherKeyPair) pemReader.ReadObject()).Private;
+	// 	}
+	//
+	// 	return (privateKey, new RsaKeyParameters(false, privateKey.Modulus, RsaCryptography.RsaKeyExponent));
+	// }
 	
 	public static string Md5Hash(string input) => MD5.HashData(Encoding.Default.GetBytes(input)).Aggregate(new StringBuilder(), (sb, cur) => sb.Append(cur.ToString("x2"))).ToString();
-	
-	
 }
