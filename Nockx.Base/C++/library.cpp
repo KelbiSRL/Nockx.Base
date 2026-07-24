@@ -38,6 +38,10 @@ void free_pointer(void *ptr) {
 	free(ptr);
 }
 
+void free_openssl_pointer(void *ptr) {
+	OPENSSL_free(ptr);
+}
+
 unsigned char generate_key(const char *key_type) {
 	OpenSSL_add_all_algorithms();
 	ERR_load_crypto_strings();
@@ -151,12 +155,12 @@ unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_
 	return public_key;
 }
 
-unsigned char get_public_key_size_from_string(const char *input, const char *key_type, int *public_key_size) {
+unsigned char *read_public_key_from_string(const char *input, const char *key_type, int *public_key_size) {
 	BIO *bio = BIO_new_mem_buf(input, static_cast<int>(strlen(input)));
 	if (!bio) {
 		fprintf(stderr, "Error creating buffer for public key string:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	EVP_PKEY *key = nullptr;
@@ -172,53 +176,23 @@ unsigned char get_public_key_size_from_string(const char *input, const char *key
 	if (!key) {
 		fprintf(stderr, "Error reading key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
-	*public_key_size = i2d_PUBKEY(key, nullptr);
+	unsigned char *public_key = nullptr;
+	*public_key_size = i2d_PUBKEY(key, &public_key);
 	EVP_PKEY_free(key);
 	BIO_free(bio);
 
-	return 1;
+	return public_key;
 }
 
-unsigned char read_public_key_from_string(const char *input, const char *key_type, unsigned char *public_key) {
-	BIO *bio = BIO_new_mem_buf(input, static_cast<int>(strlen(input)));
-	if (!bio) {
-		fprintf(stderr, "Error creating buffer for public key string:\n");
-		ERR_print_errors_fp(stderr);
-		return 0;
-	}
-
-	EVP_PKEY *key = nullptr;
-	EVP_PKEY *candidate = nullptr;
-	while ((candidate = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr)) != nullptr) {
-		if (strcmp(EVP_PKEY_get0_type_name(candidate), key_type) == 0) {
-			key = candidate;
-			break;
-		}
-		EVP_PKEY_free(candidate);
-	}
-
-	if (!key) {
-		fprintf(stderr, "Error reading key:\n");
-		ERR_print_errors_fp(stderr);
-		return 0;
-	}
-
-	i2d_PUBKEY(key, &public_key);
-	EVP_PKEY_free(key);
-	BIO_free(bio);
-
-	return 1;
-}
-
-unsigned char get_ciphertext_and_shared_secret_length(const unsigned char *public_kem_key, const unsigned int kem_key_size, unsigned int *ciphertext_length, unsigned int *shared_secret_length) {
+unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const AesKey *aes_key, unsigned int *wrapped_encrypted_aes_key_length) {
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
@@ -226,7 +200,7 @@ unsigned char get_ciphertext_and_shared_secret_length(const unsigned char *publi
 		fprintf(stderr, "Failed to create context:\n");
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_PKEY_encapsulate_init(ctx, nullptr) <= 0) {
@@ -234,7 +208,7 @@ unsigned char get_ciphertext_and_shared_secret_length(const unsigned char *publi
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
 	size_t ct_length, ss_length;
@@ -243,45 +217,29 @@ unsigned char get_ciphertext_and_shared_secret_length(const unsigned char *publi
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
-	*ciphertext_length = ct_length;
-	*shared_secret_length = ss_length;
+	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(ct_length));
 
-	return 1;
-}
-
-unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const AesKey *aes_key, unsigned char *wrapped_encrypted_aes_key, const unsigned int wrapped_encrypted_aes_key_length, const unsigned int shared_secret_length) {
-	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
-	if (!parsed_key) {
-		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
-		return 0;
-	}
-
-	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
-	if (!ctx) {
-		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
-		EVP_PKEY_free(parsed_key);
-		return 0;
-	}
-
-	if (EVP_PKEY_encapsulate_init(ctx, nullptr) <= 0) {
-		fprintf(stderr, "Failed to initialize encapsulation:\n");
+	if (ciphertext == nullptr) {
+		fprintf(stderr, "Error allocating ciphertext:\n");
 		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
-		return 0;
+		return nullptr;
 	}
 
-	// - 60 because of the wrapped AES key (see wrap_aes_key_with_aes_gcm in aes_crypto.cpp) which will be added before the encapsulated shared secret
-	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN));
-	auto shared_secret = static_cast<unsigned char *>(OPENSSL_malloc(shared_secret_length));
+	auto shared_secret = static_cast<unsigned char *>(OPENSSL_secure_malloc(ss_length));
 
-	size_t ct_length = wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN;
-	size_t ss_length = shared_secret_length;
+	if (shared_secret == nullptr) {
+		fprintf(stderr, "Error allocating shared_secret:\n");
+		ERR_print_errors_fp(stderr);
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(parsed_key);
+		OPENSSL_free(ciphertext);
+		return nullptr;
+	}
 
 	if (EVP_PKEY_encapsulate(ctx, ciphertext, &ct_length, shared_secret, &ss_length) <= 0) {
 		fprintf(stderr, "Failed to encapsulate:\n");
@@ -289,30 +247,47 @@ unsigned char encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, c
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
-		OPENSSL_free(shared_secret);
-		return 0;
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		return nullptr;
 	}
 
-	if (wrapped_encrypted_aes_key_length - WRAPPED_KEY_LEN != ct_length || shared_secret_length != ss_length) {
-		fprintf(stderr, "Ciphertext and shared secret length mismatch!\n");
+	/*
+	 * Allocate WRAPPED_KEY_LEN + cipher text length for the result,
+	 * as the wrapped key will be stored in it by the next function call
+	 * and the ciphertext created by EVP_PKEY_encapsulate will be appended to it.
+	 * The ciphertext can be decrypted using the private ML-KEM key,
+	 * after which you will retrieve a shared secret, which can be used to unwrap the AES key.
+	 */
+	*wrapped_encrypted_aes_key_length = WRAPPED_KEY_LEN + ct_length;
+	auto wrapped_encrypted_aes_key = static_cast<unsigned char *>(OPENSSL_malloc(*wrapped_encrypted_aes_key_length));
+	if (wrapped_encrypted_aes_key == nullptr) {
+		fprintf(stderr, "Error allocating wrapped_encrypted_aes_key:\n");
+		ERR_print_errors_fp(stderr);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
-		OPENSSL_free(shared_secret);
-		return 0;
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		return nullptr;
 	}
 
-	wrap_aes_key_with_aes_gcm(aes_key, shared_secret, wrapped_encrypted_aes_key);
+	if (!wrap_aes_key_with_aes_gcm(aes_key, shared_secret, wrapped_encrypted_aes_key)) {
+		fprintf(stderr, "Wrapping AES key with ML-KEM failed\n");
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(parsed_key);
+		OPENSSL_free(ciphertext);
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		OPENSSL_free(wrapped_encrypted_aes_key);
+		return nullptr;
+	}
 
-	for (int i = 32; i < wrapped_encrypted_aes_key_length; i++)
-		wrapped_encrypted_aes_key[i] = ciphertext[i - 32];
+	memcpy(wrapped_encrypted_aes_key + WRAPPED_KEY_LEN, ciphertext, ct_length);
 
 	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(parsed_key);
 	OPENSSL_free(ciphertext);
-	OPENSSL_free(shared_secret);
+	OPENSSL_secure_clear_free(shared_secret, ss_length);
 
-	return 1;
+	return wrapped_encrypted_aes_key;
 }
 
 AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_length) {
