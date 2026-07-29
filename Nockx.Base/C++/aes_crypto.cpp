@@ -1,6 +1,5 @@
 #include "aes_crypto.h"
 
-#include <vector>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
@@ -20,16 +19,16 @@ void destroy_aes_key(const AesKey *aes_key) {
 	delete aes_key;
 }
 
-uint8_t generate_iv(uint8_t *iv) {
+int generate_iv(uint8_t *iv) {
 	return RAND_bytes(iv, IV_LEN);
 }
 
-uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *ciphertext) {
+uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, size_t *ciphertext_len) {
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	struct Guard {
@@ -43,19 +42,19 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 	if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
 		fprintf(stderr, "Failed to set encryption type:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	// Authenticate the extra data without encrypting it
@@ -63,20 +62,29 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 	if (EVP_EncryptUpdate(ctx, nullptr, &len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to authenticate extra data:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
+	}
+
+	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(plaintext_len + TAG_LEN));
+	if (!ciphertext) {
+		fprintf(stderr, "Failed to allocate ciphertext:\n");
+		ERR_print_errors_fp(stderr);
+		return nullptr;
 	}
 
 	if (EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, static_cast<int>(plaintext_len)) != 1) {
 		fprintf(stderr, "Failed to encrypt:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		OPENSSL_free(ciphertext);
+		return nullptr;
 	}
 
 	int total = len;
 	if (EVP_EncryptFinal_ex(ctx, ciphertext + total, &len) != 1) {
 		fprintf(stderr, "Failed to finalize encryption:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		OPENSSL_free(ciphertext);
+		return nullptr;
 	}
 	total += len;
 
@@ -84,25 +92,28 @@ uint8_t encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_le
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN, tag.data()) != 1) {
 		fprintf(stderr, "Failed to get tag:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		OPENSSL_free(ciphertext);
+		return nullptr;
 	}
 
 	memcpy(ciphertext + total, tag.data(), tag.size());
 
-	return 1;
+	*ciphertext_len = total + TAG_LEN;
+
+	return ciphertext;
 }
 
-uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, uint8_t *plaintext) {
+uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, size_t *plaintext_len) {
 	if (ciphertext_len < 16) {
 		fprintf(stderr, "Ciphertext too short\n");
-		return 0;
+		return nullptr;
 	}
 
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	struct Guard {
@@ -116,68 +127,84 @@ uint8_t decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_
 	if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
 		fprintf(stderr, "Failed to set decryption type:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	if (EVP_DecryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	int len = 0;
 	if (EVP_DecryptUpdate(ctx, nullptr, &len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to authenticate extra data:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		return nullptr;
 	}
 
 	const size_t actual_ciphertext_len = ciphertext_len - TAG_LEN;
+
+	// TODO: possibly secure alloc this
+	auto plaintext = static_cast<unsigned char *>(OPENSSL_malloc(actual_ciphertext_len));
+	if (!plaintext) {
+		fprintf(stderr, "Failed to allocate plaintext:\n");
+		ERR_print_errors_fp(stderr);
+		return nullptr;
+	}
+
 	if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, static_cast<int>(actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to decrypt:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		OPENSSL_cleanse(plaintext, len);
+		OPENSSL_free(plaintext);
+		return nullptr;
 	}
 
 	const int total = len;
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, const_cast<uint8_t *>(ciphertext + actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to set tag:\n");
 		ERR_print_errors_fp(stderr);
-		return 0;
+		OPENSSL_cleanse(plaintext, len);
+		OPENSSL_free(plaintext);
+		return nullptr;
 	}
 
 	if (EVP_DecryptFinal_ex(ctx, plaintext + total, &len) <= 0) {
 		fprintf(stderr, "Authentication failed. Message is corrupt or tampered:\n");
 		ERR_print_errors_fp(stderr);
 		OPENSSL_cleanse(plaintext, actual_ciphertext_len);  // zero out any partial plaintext
-		return 0;
+		OPENSSL_free(plaintext);
+		return nullptr;
 	}
 
-	return 1;
+	*plaintext_len = actual_ciphertext_len;
+
+	return plaintext;
 }
 
 // Fills wrapped_key with 60 bytes (12 byte IV, 32 byte AES key, 16 byte tag)
-uint8_t wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret, uint8_t *wrapped_key) {
-	try {
-		const AesKey shared_secret_key(shared_secret);
+std::vector<uint8_t> wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret) {
+	const AesKey shared_secret_key(shared_secret);
 
-		uint8_t iv[12];
-		if (generate_iv(iv) != 1) {
-			fprintf(stderr, "RAND_bytes failed\n");
-			return 0;
-		}
-
-		memcpy(wrapped_key, iv, IV_LEN);
-		return encrypt_with_aes_gcm(aes_key->key.data, aes_key->key.len, &shared_secret_key, iv, nullptr, 0, wrapped_key + IV_LEN);
-	} catch (...) {
-		return 0;
+	uint8_t iv[IV_LEN];
+	if (generate_iv(iv) != 1) {
+		fprintf(stderr, "RAND_bytes failed\n");
+		throw std::runtime_error("RAND_bytes failed");
 	}
+
+	size_t wrapped_key_len;
+	std::vector wrapped_key(std::begin(iv), std::end(iv));
+	uint8_t *ivless_wrapped_aes_key = encrypt_with_aes_gcm(aes_key->key.data, aes_key->key.len, &shared_secret_key, iv, nullptr, 0, &wrapped_key_len);
+	wrapped_key.insert(wrapped_key.end(), ivless_wrapped_aes_key, ivless_wrapped_aes_key + wrapped_key_len);
+
+	return wrapped_key;
 }
 
 AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret) {
@@ -187,7 +214,14 @@ AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *s
 
 		uint8_t iv[12];
 		memcpy(iv, wrapped_key, IV_LEN);
-		return decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, unwrapped_key->key.data) ? unwrapped_key : nullptr;
+
+		size_t plaintext_len;
+		uint8_t *plaintext = decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, &plaintext_len);
+		if (!plaintext || plaintext_len != AES_KEY_LEN)
+			return nullptr;
+
+		unwrapped_key->key.data = plaintext;
+		return unwrapped_key;
 	} catch (...) {
 		return nullptr;
 	}

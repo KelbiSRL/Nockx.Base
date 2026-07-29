@@ -72,43 +72,30 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 		return nullptr;
 	}
 
-	/*
-	 * Allocate WRAPPED_KEY_LEN + cipher text length for the result,
-	 * as the wrapped key will be stored in it by the next function call
-	 * and the ciphertext created by EVP_PKEY_encapsulate will be appended to it.
-	 * The ciphertext can be decrypted using the private ML-KEM key,
-	 * after which you will retrieve a shared secret, which can be used to unwrap the AES key.
-	 */
-	*wrapped_encrypted_aes_key_length = WRAPPED_KEY_LEN + ct_length;
-	auto wrapped_encrypted_aes_key = static_cast<unsigned char *>(OPENSSL_malloc(*wrapped_encrypted_aes_key_length));
-	if (!wrapped_encrypted_aes_key) {
-		fprintf(stderr, "Error allocating wrapped_encrypted_aes_key:\n");
-		ERR_print_errors_fp(stderr);
-		EVP_PKEY_CTX_free(ctx);
-		EVP_PKEY_free(parsed_key);
-		OPENSSL_free(ciphertext);
-		OPENSSL_secure_clear_free(shared_secret, ss_length);
-		return nullptr;
-	}
-
-	if (!wrap_aes_key_with_aes_gcm(aes_key, shared_secret, wrapped_encrypted_aes_key)) {
+	std::vector<uint8_t> wrapped_aes_key;
+	try {
+		wrapped_aes_key = wrap_aes_key_with_aes_gcm(aes_key, shared_secret);
+	} catch (...) {
 		fprintf(stderr, "Wrapping AES key with ML-KEM failed\n");
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
 		OPENSSL_secure_clear_free(shared_secret, ss_length);
-		OPENSSL_free(wrapped_encrypted_aes_key);
 		return nullptr;
 	}
 
-	memcpy(wrapped_encrypted_aes_key + WRAPPED_KEY_LEN, ciphertext, ct_length);
+	auto wrapped_aes_key_pointer = static_cast<uint8_t *>(OPENSSL_malloc(wrapped_aes_key.size() + ct_length));
+	memcpy(wrapped_aes_key_pointer, wrapped_aes_key.data(), wrapped_aes_key.size());
+	memcpy(wrapped_aes_key_pointer + wrapped_aes_key.size(), ciphertext, ct_length);
 
 	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(parsed_key);
 	OPENSSL_free(ciphertext);
 	OPENSSL_secure_clear_free(shared_secret, ss_length);
 
-	return wrapped_encrypted_aes_key;
+	*wrapped_encrypted_aes_key_length = wrapped_aes_key.size() + ct_length;
+
+	return wrapped_aes_key_pointer;
 }
 
 AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_length) {
