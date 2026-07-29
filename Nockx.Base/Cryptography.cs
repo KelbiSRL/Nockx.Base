@@ -1,14 +1,17 @@
 using System.Security.Cryptography;
 using System.Text;
 using Nockx.Base.CryptographyTypes;
+using Nockx.Base.CryptographyTypes.Aes;
 using Nockx.Base.CryptographyTypes.Rsa;
+using MlDsaCryptography = Nockx.Base.CryptographyTypes.MlDsa.MlDsaCryptography;
+using MlKemCryptography = Nockx.Base.CryptographyTypes.MlKem.MlKemCryptography;
 
 namespace Nockx.Base;
 
 public static class Cryptography {
 	public const string MlKem768 = "ML-KEM-768";
 	public const string MlDsa65 = "ML-DSA-65";
-	public const string Rsa = "RSA";
+	public const string Rsa = RsaCryptography.KeyType;
 	
 	public const int AesKeyLength = 32;
 	public const int RsaKeyLength = 256;
@@ -29,12 +32,11 @@ public static class Cryptography {
 
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlKem768.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlDsa65.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
-		File.AppendAllText("private_key.pem", File.ReadAllText("private_rsa_key.pem"));
+		File.AppendAllText("private_key.pem", File.ReadAllText($"{Rsa.ToLowerInvariant()}_private_key.pem"));
 		
 		File.Delete($"{MlKem768.ToLowerInvariant()}_private_key.pem");
 		File.Delete($"{MlDsa65.ToLowerInvariant()}_private_key.pem");
-		File.Delete("private_rsa_key.pem");
-		File.Delete("public_rsa_key.pem");
+		File.Delete($"{Rsa.ToLowerInvariant()}_private_key.pem");
 	}
 	
 	public static bool GenerateKey(string keyType) => MlKemCryptography.GenerateKey(keyType);
@@ -69,21 +71,22 @@ public static class Cryptography {
 	
 	public static bool VerifyWithMlDsa(string text, string signature, byte[] dsaPublicKey) => MlDsaCryptography.Verify(Encoding.UTF8.GetBytes(text), Convert.FromBase64String(signature), dsaPublicKey);
 
-	// public static byte[] EncryptBytes(byte[] input, RsaKeyParameters foreignRsaPublicKey, byte[] foreignKemPublicKey) {
-	// 	byte[] aesKey = GenerateAesKey();
-	//
-	// 	byte[] cipherBytes = EncryptWithAes(input, input.Length, aesKey);
-	// 	byte[] encryptedAesKey = EncryptAesKeyWithMlKem(aesKey, foreignKemPublicKey);
-	// 	byte[] doubleEncryptedAesKey = EncryptAesKeyWithRsa(encryptedAesKey[..AesKeyLength], foreignRsaPublicKey);
-	//
-	// 	byte[] output = new byte[doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength + cipherBytes.Length];
-	// 	Buffer.BlockCopy(doubleEncryptedAesKey, 0, output, 0, doubleEncryptedAesKey.Length);
-	// 	Buffer.BlockCopy(encryptedAesKey, AesKeyLength, output, doubleEncryptedAesKey.Length, encryptedAesKey.Length - AesKeyLength);
-	// 	Buffer.BlockCopy(cipherBytes, 0, output, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes.Length);
-	// 	
-	// 	return output;
-	// }
-	//
+	public static byte[] EncryptBytes(byte[] input, NockxKey foreignPublicKey, byte[] additionalAuthenticationData, out byte[] iv) {
+		AesKey aesKey = AesKey.Generate();
+	
+		byte[] cipherBytes = aesKey.Encrypt(input, out iv);
+		// byte[] encryptedAesKey = EncryptAesKeyWithMlKem(aesKey, foreignKemPublicKey);
+		// byte[] doubleEncryptedAesKey = EncryptAesKeyWithRsa(encryptedAesKey[..AesKeyLength], foreignRsaPublicKey);
+	
+		// byte[] output = new byte[doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength + cipherBytes.Length];
+		// Buffer.BlockCopy(doubleEncryptedAesKey, 0, output, 0, doubleEncryptedAesKey.Length);
+		// Buffer.BlockCopy(encryptedAesKey, AesKeyLength, output, doubleEncryptedAesKey.Length, encryptedAesKey.Length - AesKeyLength);
+		// Buffer.BlockCopy(cipherBytes, 0, output, doubleEncryptedAesKey.Length + encryptedAesKey.Length - AesKeyLength, cipherBytes.Length);
+		
+		// return output;
+		return [];
+	}
+	
 	// public static byte[] DecryptBytes(byte[] input, RsaKeyParameters rsaPrivateKey, byte[] kemPrivateKey) {
 	// 	byte[] doubleEncryptedAesKey = new byte[RsaKeyLength];
 	// 	byte[] encryptedAesKey = new byte[AesKeyLength + KemEncapsulationLength];

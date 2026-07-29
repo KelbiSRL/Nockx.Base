@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Nockx.Base.CryptographyTypes;
+namespace Nockx.Base.CryptographyTypes.MlDsa;
 
 internal static partial class MlDsaCryptography {
 	[LibraryImport("libnockx-base")]

@@ -12,6 +12,9 @@ internal static partial class HelperFunctions {
 
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial void free_pointer(void *ptr);
+
+	[LibraryImport("libnockx-base")]
+	internal static unsafe partial void free_openssl_pointer(void *ptr);
 	
 	[LibraryImport("libnockx-base")]
 	internal static partial byte generate_key([MarshalAs(UnmanagedType.LPStr)] string keyType);

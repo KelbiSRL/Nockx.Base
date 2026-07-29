@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Nockx.Base.CryptographyTypes;
+namespace Nockx.Base.CryptographyTypes.MlKem;
 
 internal static partial class MlKemCryptography {
 	[LibraryImport("libnockx-base")]

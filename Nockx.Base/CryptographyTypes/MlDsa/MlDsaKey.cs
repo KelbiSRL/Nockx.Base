@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace Nockx.Base.CryptographyTypes.Rsa;
+namespace Nockx.Base.CryptographyTypes.MlDsa;
 
-public sealed class RsaKey : SafeHandle {
+public class MlDsaKey : SafeHandle {
 	public override bool IsInvalid => handle == IntPtr.Zero;
 	
 	public unsafe byte[] Public {
@@ -13,7 +13,7 @@ public sealed class RsaKey : SafeHandle {
 			int publicKeySize;
 			IntPtr publicKeyPointer = HelperFunctions.extract_public_key(handle, &publicKeySize);
 			if (publicKeyPointer == IntPtr.Zero)
-				throw new InvalidOperationException("RSA public key could not be extracted");
+				throw new InvalidOperationException("ML-DSA public key could not be extracted");
 
 			byte[] publicKey = new byte[publicKeySize];
 			Marshal.Copy(publicKeyPointer, publicKey, 0, publicKeySize);
@@ -24,7 +24,7 @@ public sealed class RsaKey : SafeHandle {
 		}
 	} = null;
 
-	public RsaKey() : base(IntPtr.Zero, true) {
+	public MlDsaKey() : base(IntPtr.Zero, true) {
 		
 	}
 	
