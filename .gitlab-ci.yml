@@ -1,0 +1,5 @@
+mirror-to-github:
+  stage: deploy
+  script:
+    - git remote add github https://${GITHUB_TOKEN}@github.com/KelbiSRL/Nockx.Base
+    - git push github $CI_COMMIT_SHA:refs/heads/$CI_COMMIT_REF_NAME --force
