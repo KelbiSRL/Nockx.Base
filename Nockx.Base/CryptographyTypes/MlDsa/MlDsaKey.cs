@@ -1,35 +1,11 @@
-using System.Runtime.InteropServices;
-
 namespace Nockx.Base.CryptographyTypes.MlDsa;
 
-public class MlDsaKey : SafeHandle {
-	public override bool IsInvalid => handle == IntPtr.Zero;
-	
-	public unsafe byte[] Public {
-		get {
-			if (field is not null)
-				return field;
+public sealed class MlDsaKey : AsymmetricKey {
+	internal const string KeyType = "ML-DSA-65";
 
-			int publicKeySize;
-			IntPtr publicKeyPointer = HelperFunctions.extract_public_key(handle, &publicKeySize);
-			if (publicKeyPointer == IntPtr.Zero)
-				throw new InvalidOperationException("ML-DSA public key could not be extracted");
+	internal override string InstanceKeyType => KeyType;
 
-			byte[] publicKey = new byte[publicKeySize];
-			Marshal.Copy(publicKeyPointer, publicKey, 0, publicKeySize);
-			HelperFunctions.free_pointer((void *) publicKeyPointer);
-
-			field = publicKey;
-			return field;
-		}
-	} = null;
-
-	public MlDsaKey() : base(IntPtr.Zero, true) {
+	public MlDsaKey() {
 		
-	}
-	
-	protected override bool ReleaseHandle() {
-		HelperFunctions.destroy_asymmetric_key(handle);
-		return true;
 	}
 }

@@ -26,7 +26,7 @@ public class AesKey : SafeHandle {
 				throw new InvalidOperationException("IV could not be generated");
 		
 		ulong ciphertextLength;
-		IntPtr ciphertextPointer = AesCryptography.encrypt_with_aes_gcm(data, (ulong) data.LongLength, handle, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &ciphertextLength);
+		IntPtr ciphertextPointer = AesCryptography.encrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &ciphertextLength);
 		if (ciphertextPointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be encrypted with AES-GCM");
 
@@ -43,7 +43,7 @@ public class AesKey : SafeHandle {
 		additionalAuthenticationData ??= [];
 		
 		ulong plaintextLength;
-		IntPtr plaintextPointer = AesCryptography.decrypt_with_aes_gcm(data, (ulong) data.LongLength, handle, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &plaintextLength);
+		IntPtr plaintextPointer = AesCryptography.decrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &plaintextLength);
 		if (plaintextPointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be encrypted with AES-GCM");
 
@@ -57,7 +57,7 @@ public class AesKey : SafeHandle {
 	}
 	
 	protected override bool ReleaseHandle() {
-		AesCryptography.destroy_aes_key(handle);
+		AesCryptography.destroy_aes_key(this);
 		return true;
 	}
 }

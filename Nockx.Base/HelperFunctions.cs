@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Nockx.Base.CryptographyTypes;
 using Nockx.Base.CryptographyTypes.Rsa;
 
 namespace Nockx.Base;
@@ -8,7 +9,7 @@ internal static partial class HelperFunctions {
 	internal static partial void destroy_asymmetric_key(IntPtr asymmetricKey);
 	
 	[LibraryImport("libnockx-base")]
-	internal static unsafe partial IntPtr extract_public_key(IntPtr asymmetricKey, int *publicKeySize);
+	internal static unsafe partial IntPtr extract_public_key(AsymmetricKey asymmetricKey, int *publicKeySize);
 
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial void free_pointer(void *ptr);

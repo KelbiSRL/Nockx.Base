@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Nockx.Base.CryptographyTypes;
 using Nockx.Base.CryptographyTypes.Aes;
+using Nockx.Base.CryptographyTypes.MlDsa;
+using Nockx.Base.CryptographyTypes.MlKem;
 using Nockx.Base.CryptographyTypes.Rsa;
 using MlDsaCryptography = Nockx.Base.CryptographyTypes.MlDsa.MlDsaCryptography;
 using MlKemCryptography = Nockx.Base.CryptographyTypes.MlKem.MlKemCryptography;
@@ -9,9 +11,9 @@ using MlKemCryptography = Nockx.Base.CryptographyTypes.MlKem.MlKemCryptography;
 namespace Nockx.Base;
 
 public static class Cryptography {
-	public const string MlKem768 = "ML-KEM-768";
-	public const string MlDsa65 = "ML-DSA-65";
-	public const string Rsa = RsaCryptography.KeyType;
+	public const string MlKem768 = MlKemKey.KeyType;
+	public const string MlDsa65 = MlDsaKey.KeyType;
+	public const string Rsa = RsaKey.KeyType;
 	
 	public const int AesKeyLength = 32;
 	public const int RsaKeyLength = 256;
@@ -26,9 +28,9 @@ public static class Cryptography {
 			throw new InvalidOperationException("Private key file already exists");
 		
 		if (!GenerateKey(MlKem768) || !GenerateKey(MlDsa65))
-			throw new Exception("Key generation failed"); 
-		
-		GenerateRsaKey();
+			throw new Exception("Key generation failed");
+
+		RsaKey.GenerateKeyFile();
 
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlKem768.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
 		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlDsa65.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
@@ -54,10 +56,6 @@ public static class Cryptography {
 	// public static byte[] EncryptWithAes(byte[] data, int inputLength, byte[] aesKey) => AesCryptography.Encrypt(data, inputLength, aesKey);
 	//
 	// public static byte[] DecryptWithAes(byte[] data, byte[] aesKey) => AesCryptography.Decrypt(data, aesKey);
-
-	public static bool GenerateRsaKey() => RsaCryptography.GenerateKey();
-	
-	public static RsaKey ReadRsaKeyFromFile(string fileName) => RsaCryptography.ReadKeyFromFile(fileName);
 	
 	// public static byte[] EncryptAesKeyWithRsa(byte[] aesKey, RsaKeyParameters rsaPublicKey) => RsaCryptography.EncryptAesKey(aesKey, rsaPublicKey);
 	//
