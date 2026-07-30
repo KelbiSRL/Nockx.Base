@@ -25,7 +25,7 @@ public sealed class RsaKey : AsymmetricKey {
 		uint encryptedAesKeyLength;
 		IntPtr encryptedAesKeyPointer = RsaCryptography.encrypt_aes_key_with_rsa(Public, (uint) Public.Length, aesKey, &encryptedAesKeyLength);
 		if (encryptedAesKeyPointer == IntPtr.Zero)
-			throw new InvalidOperationException($"AES key could not be encrypted with RSA");
+			throw new InvalidOperationException("AES key could not be encrypted with RSA");
 
 		byte[] encryptedAesKey = new byte[encryptedAesKeyLength];
 		fixed (byte *encryptedAesKeyPtr = encryptedAesKey)
@@ -34,5 +34,10 @@ public sealed class RsaKey : AsymmetricKey {
 		HelperFunctions.free_openssl_pointer((void *) encryptedAesKeyPointer);
 		
 		return encryptedAesKey;
+	}
+	
+	public AesKey DecryptAesKey(byte[] data) {
+		AesKey aesKey = RsaCryptography.decrypt_aes_key_with_rsa(this, data, (uint) data.Length);
+		return aesKey.IsInvalid ? throw new InvalidOperationException("AES key could not be decrypted with RSA") : aesKey;
 	}
 }
