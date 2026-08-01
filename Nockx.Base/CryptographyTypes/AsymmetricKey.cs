@@ -1,13 +1,16 @@
 using System.Runtime.InteropServices;
+using Nockx.Base.CryptographyTypes.MlDsa;
+using Nockx.Base.CryptographyTypes.MlKem;
+using Nockx.Base.CryptographyTypes.Rsa;
 
 namespace Nockx.Base.CryptographyTypes;
 
 public abstract class AsymmetricKey() : SafeHandle(IntPtr.Zero, true) {
-	internal abstract string InstanceKeyType { get; }
+	private protected abstract string InstanceKeyType { get; }
 	
 	public sealed override bool IsInvalid => handle == IntPtr.Zero;
 	
-	public unsafe byte[] Public {
+	public unsafe PublicKey Public {
 		get {
 			if (field is not null)
 				return field;
@@ -21,7 +24,12 @@ public abstract class AsymmetricKey() : SafeHandle(IntPtr.Zero, true) {
 			Marshal.Copy(publicKeyPointer, publicKey, 0, publicKeySize);
 			HelperFunctions.free_pointer((void *) publicKeyPointer);
 
-			field = publicKey;
+			field = InstanceKeyType switch {
+				RsaKey.KeyType => new RsaPublicKey(publicKey, null),
+				MlKemKey.KeyType => new MlKemPublicKey(publicKey, null),
+				MlDsaKey.KeyType => new MlDsaPublicKey(publicKey, null),
+				_ => throw new InvalidOperationException($"{InstanceKeyType} key type is not supported")
+			};
 			return field;
 		}
 	} = null;

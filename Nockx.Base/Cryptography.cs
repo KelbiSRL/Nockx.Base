@@ -24,33 +24,33 @@ public static class Cryptography {
 	}
 	
 	public static void GenerateCombinedKeyFile() {
-		if (File.Exists("private_key.pem"))
-			throw new InvalidOperationException("Private key file already exists");
-		
-		if (!GenerateKey(MlKem768) || !GenerateKey(MlDsa65))
-			throw new Exception("Key generation failed");
-
-		RsaKey.GenerateKeyFile();
-
-		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlKem768.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
-		File.AppendAllText("private_key.pem", File.ReadAllText($"{MlDsa65.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
-		File.AppendAllText("private_key.pem", File.ReadAllText($"{Rsa.ToLowerInvariant()}_private_key.pem"));
-		
-		File.Delete($"{MlKem768.ToLowerInvariant()}_private_key.pem");
-		File.Delete($"{MlDsa65.ToLowerInvariant()}_private_key.pem");
-		File.Delete($"{Rsa.ToLowerInvariant()}_private_key.pem");
+		// if (File.Exists("private_key.pem"))
+		// 	throw new InvalidOperationException("Private key file already exists");
+		//
+		// if (!GenerateKey(MlKem768) || !GenerateKey(MlDsa65))
+		// 	throw new Exception("Key generation failed");
+		//
+		// RsaKey.GenerateKeyFile();
+		//
+		// File.AppendAllText("private_key.pem", File.ReadAllText($"{MlKem768.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
+		// File.AppendAllText("private_key.pem", File.ReadAllText($"{MlDsa65.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
+		// File.AppendAllText("private_key.pem", File.ReadAllText($"{Rsa.ToLowerInvariant()}_private_key.pem"));
+		//
+		// File.Delete($"{MlKem768.ToLowerInvariant()}_private_key.pem");
+		// File.Delete($"{MlDsa65.ToLowerInvariant()}_private_key.pem");
+		// File.Delete($"{Rsa.ToLowerInvariant()}_private_key.pem");
 	}
 	
-	public static bool GenerateKey(string keyType) => MlKemCryptography.GenerateKey(keyType);
-
-	public static KeyPair ReadKeyFromFile(string fileName, string keyType) => MlKemCryptography.ReadKeyFromFile(fileName, keyType);
-	
-	public static byte[] ReadPublicKeyFromString(string input, string keyType) =>  MlKemCryptography.ReadPublicKeyFromString(input, keyType);
-	
-	public static byte[] EncryptAesKeyWithMlKem(byte[] aesKey, byte[] publicKemKey) => MlKemCryptography.EncryptAesKey(aesKey, publicKemKey);
-	
-	public static byte[] DecryptAesKeyWithMlKem(byte[] ciphertext, byte[] privateKemKey) => MlKemCryptography.DecryptAesKey(ciphertext, privateKemKey);
-	
+	// public static bool GenerateKey(string keyType) => MlKemCryptography.GenerateKey(keyType);
+	//
+	// public static KeyPair ReadKeyFromFile(string fileName, string keyType) => MlKemCryptography.ReadKeyFromFile(fileName, keyType);
+	//
+	// public static byte[] ReadPublicKeyFromString(string input, string keyType) =>  MlKemCryptography.ReadPublicKeyFromString(input, keyType);
+	//
+	// public static byte[] EncryptAesKeyWithMlKem(byte[] aesKey, byte[] publicKemKey) => MlKemCryptography.EncryptAesKey(aesKey, publicKemKey);
+	//
+	// public static byte[] DecryptAesKeyWithMlKem(byte[] ciphertext, byte[] privateKemKey) => MlKemCryptography.DecryptAesKey(ciphertext, privateKemKey);
+	//
 	// public static byte[] GenerateAesKey() => AesCryptography.GenerateKey();
 	//
 	// public static byte[] EncryptWithAes(byte[] data, int inputLength, byte[] aesKey) => AesCryptography.Encrypt(data, inputLength, aesKey);
@@ -65,9 +65,9 @@ public static class Cryptography {
 	//
 	// public static bool VerifyWithRsa(string text, string signature, RsaKeyParameters publicKey) => RsaCryptography.Verify(text, signature, publicKey);
 
-	public static string SignWithMlDsa(string text, byte[] dsaPrivateKey) => Convert.ToBase64String(MlDsaCryptography.Sign(Encoding.UTF8.GetBytes(text), dsaPrivateKey));
-	
-	public static bool VerifyWithMlDsa(string text, string signature, byte[] dsaPublicKey) => MlDsaCryptography.Verify(Encoding.UTF8.GetBytes(text), Convert.FromBase64String(signature), dsaPublicKey);
+	// public static string SignWithMlDsa(string text, byte[] dsaPrivateKey) => Convert.ToBase64String(MlDsaCryptography.Sign(Encoding.UTF8.GetBytes(text), dsaPrivateKey));
+	//
+	// public static bool VerifyWithMlDsa(string text, string signature, byte[] dsaPublicKey) => MlDsaCryptography.Verify(Encoding.UTF8.GetBytes(text), Convert.FromBase64String(signature), dsaPublicKey);
 
 	public static byte[] EncryptBytes(byte[] input, NockxKey foreignPublicKey, byte[] additionalAuthenticationData, out byte[] iv) {
 		AesKey aesKey = AesKey.Generate();

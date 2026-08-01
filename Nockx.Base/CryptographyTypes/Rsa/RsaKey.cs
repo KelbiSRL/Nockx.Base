@@ -5,7 +5,9 @@ namespace Nockx.Base.CryptographyTypes.Rsa;
 public sealed class RsaKey : AsymmetricKey {
 	internal const string KeyType = "RSA";
 	
-	internal override string InstanceKeyType => KeyType;
+	private protected override string InstanceKeyType => KeyType;
+	
+	public new RsaPublicKey Public => (RsaPublicKey) base.Public;
 
 	public RsaKey() {
 		
@@ -17,27 +19,31 @@ public sealed class RsaKey : AsymmetricKey {
 	}
 
 	public static RsaKey ReadKeyFromFile(string fileName) {
-		RsaKey rsaKey = HelperFunctions.read_key_from_file(fileName, KeyType);
+		RsaKey rsaKey = HelperFunctions.ReadRsaKeyFromFile(fileName);
 		return rsaKey.IsInvalid ? throw new InvalidOperationException("RSA private key could not be read") : rsaKey;
 	}
-
-	public unsafe byte[] EncryptAesKey(AesKey aesKey) {
-		uint encryptedAesKeyLength;
-		IntPtr encryptedAesKeyPointer = RsaCryptography.encrypt_aes_key_with_rsa(Public, (uint) Public.Length, aesKey, &encryptedAesKeyLength);
-		if (encryptedAesKeyPointer == IntPtr.Zero)
-			throw new InvalidOperationException("AES key could not be encrypted with RSA");
-
-		byte[] encryptedAesKey = new byte[encryptedAesKeyLength];
-		fixed (byte *encryptedAesKeyPtr = encryptedAesKey)
-			Buffer.MemoryCopy((void *) encryptedAesKeyPointer, encryptedAesKeyPtr, encryptedAesKeyLength, encryptedAesKeyLength);
-		
-		HelperFunctions.free_openssl_pointer((void *) encryptedAesKeyPointer);
-		
-		return encryptedAesKey;
-	}
+	
+	public byte[] EncryptAesKey(AesKey aesKey) => Public.EncryptAesKey(aesKey);
 	
 	public AesKey DecryptAesKey(byte[] data) {
 		AesKey aesKey = RsaCryptography.decrypt_aes_key_with_rsa(this, data, (uint) data.Length);
 		return aesKey.IsInvalid ? throw new InvalidOperationException("AES key could not be decrypted with RSA") : aesKey;
 	}
+
+	public unsafe byte[] Sign(byte[] data) {
+		ulong signatureSize;
+		IntPtr signaturePointer = RsaCryptography.sign_with_rsa(this, data, (ulong) data.LongLength, &signatureSize);
+		if (signaturePointer == IntPtr.Zero)
+			throw new InvalidOperationException("Data could not be signed with RSA");
+
+		byte[] signature = new byte[signatureSize];
+		fixed (byte *signaturePtr = signature)
+			Buffer.MemoryCopy((void *) signaturePointer, signaturePtr, signatureSize, signatureSize);
+		
+		HelperFunctions.free_openssl_pointer((void *) signaturePointer);
+		
+		return signature;
+	}
+
+	public bool Verify(byte[] signature, byte[] data) => Public.Verify(signature, data);
 }

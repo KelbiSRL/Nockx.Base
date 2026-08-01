@@ -4,7 +4,6 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-#define IV_LEN 12
 #define TAG_LEN 16
 
 AesKey *create_aes_key() {
@@ -187,42 +186,4 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 	*plaintext_len = actual_ciphertext_len;
 
 	return plaintext;
-}
-
-// Fills wrapped_key with 60 bytes (12 byte IV, 32 byte AES key, 16 byte tag)
-std::vector<uint8_t> wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret) {
-	const AesKey shared_secret_key(shared_secret);
-
-	uint8_t iv[IV_LEN];
-	if (generate_iv(iv) != 1) {
-		fprintf(stderr, "RAND_bytes failed\n");
-		throw std::runtime_error("RAND_bytes failed");
-	}
-
-	size_t wrapped_key_len;
-	std::vector wrapped_key(std::begin(iv), std::end(iv));
-	uint8_t *ivless_wrapped_aes_key = encrypt_with_aes_gcm(aes_key->key.data, aes_key->key.len, &shared_secret_key, iv, nullptr, 0, &wrapped_key_len);
-	wrapped_key.insert(wrapped_key.end(), ivless_wrapped_aes_key, ivless_wrapped_aes_key + wrapped_key_len);
-
-	return wrapped_key;
-}
-
-AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret) {
-	try {
-		auto *unwrapped_key = new AesKey();
-		const AesKey shared_secret_key(shared_secret);
-
-		uint8_t iv[12];
-		memcpy(iv, wrapped_key, IV_LEN);
-
-		size_t plaintext_len;
-		uint8_t *plaintext = decrypt_with_aes_gcm(wrapped_key + IV_LEN, AES_KEY_LEN + TAG_LEN, &shared_secret_key, iv, nullptr, 0, &plaintext_len);
-		if (!plaintext || plaintext_len != AES_KEY_LEN)
-			return nullptr;
-
-		unwrapped_key->key.data = plaintext;
-		return unwrapped_key;
-	} catch (...) {
-		return nullptr;
-	}
 }

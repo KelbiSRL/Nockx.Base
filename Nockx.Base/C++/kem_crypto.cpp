@@ -10,7 +10,7 @@
 
 #define WRAPPED_KEY_LEN 60
 
-unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const AesKey *aes_key, unsigned int *wrapped_encrypted_aes_key_length) {
+unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, unsigned char *iv, const unsigned char *rsa_encrypted_aes_key, const unsigned int rsa_encrypted_aes_key_length, unsigned int *wrapped_encrypted_aes_key_length) {
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
@@ -72,9 +72,27 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 		return nullptr;
 	}
 
-	std::vector<uint8_t> wrapped_aes_key;
+	uint8_t *doubly_encrypted_aes_key;
+	size_t doubly_encrypted_aes_key_len;
 	try {
-		wrapped_aes_key = wrap_aes_key_with_aes_gcm(aes_key, shared_secret);
+		auto ss_aes_key = new AesKey(shared_secret);
+		if (!ss_aes_key) {
+			fprintf(stderr, "Failed to create AES key\n");
+			throw std::exception();
+		}
+
+		iv = static_cast<uint8_t *>(OPENSSL_malloc(IV_LEN));
+		if (!iv) {
+			fprintf(stderr, "Error allocating IV\n");
+			throw std::exception();
+		}
+
+		if (generate_iv(iv) != 1) {
+			fprintf(stderr, "Failed to generate IV\n");
+			throw std::exception();
+		}
+
+		doubly_encrypted_aes_key = encrypt_with_aes_gcm(rsa_encrypted_aes_key, rsa_encrypted_aes_key_length, ss_aes_key, iv, nullptr, 0, &doubly_encrypted_aes_key_len);
 	} catch (...) {
 		fprintf(stderr, "Wrapping AES key with ML-KEM failed\n");
 		EVP_PKEY_CTX_free(ctx);
@@ -84,21 +102,43 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 		return nullptr;
 	}
 
-	auto wrapped_aes_key_pointer = static_cast<uint8_t *>(OPENSSL_malloc(wrapped_aes_key.size() + ct_length));
-	memcpy(wrapped_aes_key_pointer, wrapped_aes_key.data(), wrapped_aes_key.size());
-	memcpy(wrapped_aes_key_pointer + wrapped_aes_key.size(), ciphertext, ct_length);
+	if (sizeof(doubly_encrypted_aes_key_len) != 8) {
+		fprintf(stderr, "doubly_encrypted_aes_key_len is not a 64-bit integer\n");
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(parsed_key);
+		OPENSSL_free(ciphertext);
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		return nullptr;
+	}
+
+	auto wrapped_aes_key_pointer = static_cast<uint8_t *>(OPENSSL_malloc(8 + doubly_encrypted_aes_key_len + ct_length));
+	if (!wrapped_aes_key_pointer) {
+		fprintf(stderr, "Error allocating wrapped_aes_key_pointer\n");
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(parsed_key);
+		OPENSSL_free(ciphertext);
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		return nullptr;
+	}
+
+	// Copy the length of the wrapped AES key to the front of the resulting array (byte by byte, little endian). This is more consistent than with memcpy
+	for (int i = 0; i < 8; i++)
+		wrapped_aes_key_pointer[i] = static_cast<uint8_t>(doubly_encrypted_aes_key_len >> (i*8));
+
+	memcpy(wrapped_aes_key_pointer + 8, doubly_encrypted_aes_key, doubly_encrypted_aes_key_len);
+	memcpy(wrapped_aes_key_pointer + 8 + doubly_encrypted_aes_key_len, ciphertext, ct_length);
 
 	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(parsed_key);
 	OPENSSL_free(ciphertext);
 	OPENSSL_secure_clear_free(shared_secret, ss_length);
 
-	*wrapped_encrypted_aes_key_length = wrapped_aes_key.size() + ct_length;
+	*wrapped_encrypted_aes_key_length = doubly_encrypted_aes_key_len + ct_length;
 
 	return wrapped_aes_key_pointer;
 }
 
-AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_length) {
+unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_len, const unsigned char *iv, unsigned int *plaintext_len) {
 	if (!private_kem_key) {
 		fprintf(stderr, "Key is null\n");
 		return nullptr;
@@ -140,8 +180,12 @@ AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const 
 		return nullptr;
 	}
 
+	size_t wrapped_encrypted_aes_key_len = 0;
+	for (int i = 0; i < 8; i++)
+		wrapped_encrypted_aes_key_len |= ciphertext[i] << (i*8);
+
 	size_t ss_length;
-	std::vector true_ciphertext(ciphertext + WRAPPED_KEY_LEN, ciphertext + ciphertext_length);
+	std::vector true_ciphertext(ciphertext + 8 + wrapped_encrypted_aes_key_len, ciphertext + ciphertext_len);
 	if (EVP_PKEY_decapsulate(ctx, nullptr, &ss_length, true_ciphertext.data(), true_ciphertext.size()) <= 0) {
 		fprintf(stderr, "Failed to decapsulate (size check):\n");
 		ERR_print_errors_fp(stderr);
@@ -171,8 +215,23 @@ AesKey *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const 
 	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(parsed_key);
 
-	AesKey *unwrapped_key = unwrap_aes_key_with_aes_gcm(ciphertext, shared_secret);
+	AesKey *shared_secret_aes_key;
+	try {
+		shared_secret_aes_key = new AesKey(shared_secret);
+	} catch (...) {
+		fprintf(stderr, "Failed to create AesKey shared_secret_aes_key:\n");
+		ERR_print_errors_fp(stderr);
+		OPENSSL_secure_clear_free(shared_secret, ss_length);
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(parsed_key);
+		return nullptr;
+	}
+
+	size_t local_plaintext_len;
+	unsigned char *unwrapped_key = decrypt_with_aes_gcm(ciphertext + 8, wrapped_encrypted_aes_key_len, shared_secret_aes_key, iv, nullptr, 0, &local_plaintext_len);
 	OPENSSL_secure_clear_free(shared_secret, ss_length);
+
+	*plaintext_len = local_plaintext_len;
 
 	if (!unwrapped_key)
 		fprintf(stderr, "Failed to unwrap AES key\n");

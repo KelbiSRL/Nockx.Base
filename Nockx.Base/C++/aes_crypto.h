@@ -13,6 +13,7 @@
 #define EXPORT
 #endif
 
+#define IV_LEN 12
 #define AES_KEY_LEN 32
 
 struct AesKey {
@@ -41,9 +42,5 @@ extern "C" {
 
 	EXPORT uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, size_t extra_auth_data_len, size_t *plaintext_len);
 }
-
-std::vector<uint8_t> wrap_aes_key_with_aes_gcm(const AesKey *aes_key, const uint8_t *shared_secret);
-
-AesKey *unwrap_aes_key_with_aes_gcm(const uint8_t *wrapped_key, const uint8_t *shared_secret);
 
 #endif //NOCKX_BASE_AES_CRYPTO_H

@@ -15,6 +15,7 @@ internal static partial class AesCryptography {
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial IntPtr encrypt_with_aes_gcm([In] byte[] plaintext, ulong plaintextLength, AesKey aesKey, [In] byte[] iv, [In] byte[] aad, ulong aadLength, ulong *ciphertextLength);
 
+	// TODO: this might be an unsafe IntPtr return and should then be changed to some SafeHandle
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial IntPtr decrypt_with_aes_gcm([In] byte[] ciphertext, ulong ciphertextLength, AesKey aesKey, [In] byte[] iv, [In] byte[] aad, ulong aadLength, ulong *plaintextLength);
 }
