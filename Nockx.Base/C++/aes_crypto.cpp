@@ -103,7 +103,7 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 }
 
 uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, size_t *plaintext_len) {
-	if (ciphertext_len < 16) {
+	if (ciphertext_len < TAG_LEN) {
 		fprintf(stderr, "Ciphertext too short\n");
 		return nullptr;
 	}

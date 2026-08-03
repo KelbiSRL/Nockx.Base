@@ -7,11 +7,9 @@ public class MlKemPublicKey : PublicKey {
 	
 	public MlKemPublicKey(byte[] rawKey) : base(rawKey) { }
 
-	// TODO: decide whether iv should be in the returned byte array and if yes, whether to do it in C# or in C++
-	public unsafe byte[] EncryptRsaEncryptedAesKey(byte[] rsaEncryptedAesKey, out byte[] iv) {
+	public unsafe byte[] EncryptRsaEncryptedAesKey(byte[] rsaEncryptedAesKey) {
 		uint encryptedAesKeyLength;
-		iv = new byte[12];
-		IntPtr encryptedAesKeyPointer = MlKemCryptography.encrypt_aes_key_with_ml_kem([..RawKey], (uint) RawKey.Length, iv, rsaEncryptedAesKey, (uint) rsaEncryptedAesKey.Length, &encryptedAesKeyLength);
+		IntPtr encryptedAesKeyPointer = MlKemCryptography.encrypt_aes_key_with_ml_kem([..RawKey], (uint) RawKey.Length, rsaEncryptedAesKey, (uint) rsaEncryptedAesKey.Length, &encryptedAesKeyLength);
 		if (encryptedAesKeyPointer == IntPtr.Zero)
 			throw new InvalidOperationException("AES key could not be encrypted with RSA");
 

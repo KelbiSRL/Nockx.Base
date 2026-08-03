@@ -21,11 +21,11 @@ public sealed class MlKemKey : AsymmetricKey {
 		return mlKemKey.IsInvalid ? throw new InvalidOperationException("ML-KEM private key could not be read") : mlKemKey;
 	}
 
-	public byte[] EncryptRsaEcnryptedAesKey(byte[] rsaEncryptedAesKey, out byte[] iv) => Public.EncryptRsaEncryptedAesKey(rsaEncryptedAesKey, out iv);
+	public byte[] EncryptRsaEncryptedAesKey(byte[] rsaEncryptedAesKey) => Public.EncryptRsaEncryptedAesKey(rsaEncryptedAesKey);
 	
-	public unsafe byte[] DecryptAesKey(byte[] data, byte[] iv) { 
+	public unsafe byte[] DecryptAesKey(byte[] data) { 
 		uint singlyDecryptedAesKeyLength;
-		IntPtr singlyDecryptedAesKeyPointer = MlKemCryptography.decrypt_aes_key_with_ml_kem(this, data, (uint) data.Length, iv, &singlyDecryptedAesKeyLength);
+		IntPtr singlyDecryptedAesKeyPointer = MlKemCryptography.decrypt_aes_key_with_ml_kem(this, data, (uint) data.Length, &singlyDecryptedAesKeyLength);
 		if (singlyDecryptedAesKeyPointer == IntPtr.Zero)
 			throw new InvalidOperationException("AES key could not be decrypted with ML-KEM");
 

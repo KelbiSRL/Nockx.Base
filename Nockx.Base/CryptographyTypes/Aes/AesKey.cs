@@ -17,35 +17,44 @@ public class AesKey : SafeHandle {
 		return aesKey.IsInvalid ? throw new InvalidOperationException("AesKey could not be created") : aesKey;
 	}
 
-	public unsafe byte[] Encrypt(byte[] data, out byte[] iv, byte[]? additionalAuthenticationData = null) {
-		additionalAuthenticationData ??= [];
-		iv = new byte[IvLength];
+	public unsafe byte[] Encrypt(byte[] data, byte[]? additionalAuthenticationData = null) {
+		byte[] iv = new byte[IvLength];
 		
 		fixed (byte *ivPtr = iv)
 			if (AesCryptography.generate_iv(ivPtr) != 1)
 				throw new InvalidOperationException("IV could not be generated");
+		
+		return Encrypt(data, iv, additionalAuthenticationData);
+	}
+	
+	public unsafe byte[] Encrypt(byte[] data, byte[] iv, byte[]? additionalAuthenticationData) {
+		additionalAuthenticationData ??= [];
 		
 		ulong ciphertextLength;
 		IntPtr ciphertextPointer = AesCryptography.encrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &ciphertextLength);
 		if (ciphertextPointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be encrypted with AES-GCM");
 
-		byte[] ciphertext = new byte[ciphertextLength];
+		byte[] ciphertext = new byte[IvLength + ciphertextLength];
+		Buffer.BlockCopy(iv, 0, ciphertext, 0, IvLength);
 		fixed (byte *ciphertextPtr = ciphertext)
-			Buffer.MemoryCopy((void *) ciphertextPointer, ciphertextPtr, ciphertextLength, ciphertextLength);
+			Buffer.MemoryCopy((void *) ciphertextPointer, ciphertextPtr + IvLength, ciphertextLength, ciphertextLength);
 		
 		HelperFunctions.free_openssl_pointer((void *) ciphertextPointer);
 		
 		return ciphertext;
 	}
 	
-	public unsafe byte[] Decrypt(byte[] data, byte[] iv, byte[]? additionalAuthenticationData = null) {
+	public unsafe byte[] Decrypt(byte[] data, byte[]? additionalAuthenticationData = null) {
 		additionalAuthenticationData ??= [];
 		
+		byte[] iv = new byte[IvLength];
+		Buffer.BlockCopy(data, 0, iv, 0, IvLength);
+		
 		ulong plaintextLength;
-		IntPtr plaintextPointer = AesCryptography.decrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &plaintextLength);
+		IntPtr plaintextPointer = AesCryptography.decrypt_with_aes_gcm(data[IvLength..], (ulong) data.LongLength - IvLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &plaintextLength);
 		if (plaintextPointer == IntPtr.Zero)
-			throw new InvalidOperationException("Data could not be encrypted with AES-GCM");
+			throw new InvalidOperationException("Data could not be decrypted with AES-GCM");
 
 		byte[] plaintext = new byte[plaintextLength];
 		fixed (byte *plaintextPtr = plaintext)
