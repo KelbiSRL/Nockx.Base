@@ -21,6 +21,9 @@ internal static partial class HelperFunctions {
 	
 	[LibraryImport("libnockx-base")]
 	internal static partial byte generate_key([MarshalAs(UnmanagedType.LPStr)] string keyType);
+
+	[LibraryImport("libnockx-base")]
+	internal static partial IntPtr get_key_type([In] byte[] publicKey, uint keySize);
 	
 	[LibraryImport("libnockx-base", EntryPoint = "read_key_from_file")]
 	internal static partial RsaKey ReadRsaKeyFromFile([MarshalAs(UnmanagedType.LPStr)] string fileName, [MarshalAs(UnmanagedType.LPStr)] string keyType = RsaKey.KeyType);

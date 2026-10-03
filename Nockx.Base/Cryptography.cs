@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Nockx.Base.CryptographyTypes.MlDsa;
@@ -14,4 +15,16 @@ public static class Cryptography {
 	public static void InitSecureHeap() => Init.init_secure_heap();
 	
 	public static string Md5Hash(string input) => MD5.HashData(Encoding.Default.GetBytes(input)).Aggregate(new StringBuilder(), (sb, cur) => sb.Append(cur.ToString("x2"))).ToString();
+
+	public static unsafe string GetKeyType(byte[] publicKey) {
+		IntPtr keyTypePointer = HelperFunctions.get_key_type(publicKey, (uint) publicKey.Length);
+		if (keyTypePointer == IntPtr.Zero)
+			throw new InvalidOperationException("Key type could not be extracted from public key");
+
+		try {
+			return Marshal.PtrToStringUTF8(keyTypePointer)!;
+		} finally {
+			HelperFunctions.free_pointer((void *) keyTypePointer);
+		}
+	}
 }

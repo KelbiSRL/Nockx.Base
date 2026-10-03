@@ -1,1 +1,0 @@
-Don't use byte arrays but SafeHandles instead

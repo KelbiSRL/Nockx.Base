@@ -142,6 +142,27 @@ unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_
 	return public_key;
 }
 
+char *get_key_type(const uint8_t *public_key, const unsigned int key_size) {
+	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_key, key_size);
+	if (!parsed_key) {
+		fprintf(stderr, "Failed to parse key:\n");
+		ERR_print_errors_fp(stderr);
+		return strdup("invalid");
+	}
+
+	const char *type = EVP_PKEY_get0_type_name(parsed_key);
+	if (!type) {
+		fprintf(stderr, "Failed to get key type:\n");
+		ERR_print_errors_fp(stderr);
+		EVP_PKEY_free(parsed_key);
+		return strdup("unknown");
+	}
+
+	char *type_name = strdup(type);
+	EVP_PKEY_free(parsed_key);
+	return type_name;
+}
+
 unsigned char *read_public_key_from_string(const char *input, const char *key_type, int *public_key_size) {
 	BIO *bio = BIO_new_mem_buf(input, static_cast<int>(strlen(input)));
 	if (!bio) {

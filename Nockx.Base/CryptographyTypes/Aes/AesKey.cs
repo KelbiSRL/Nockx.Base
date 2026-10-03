@@ -29,6 +29,9 @@ public class AesKey : SafeHandle {
 	
 	public unsafe byte[] Encrypt(byte[] data, byte[] iv, byte[]? additionalAuthenticationData) {
 		additionalAuthenticationData ??= [];
+
+		if (iv.Length != IvLength)
+			throw new ArgumentOutOfRangeException(nameof(iv), $"IV length must be {IvLength} (got {iv.Length})");
 		
 		ulong ciphertextLength;
 		IntPtr ciphertextPointer = AesCryptography.encrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &ciphertextLength);
