@@ -2,6 +2,7 @@ using Nockx.Base.CryptographyTypes.Aes;
 using Nockx.Base.CryptographyTypes.MlDsa;
 using Nockx.Base.CryptographyTypes.MlKem;
 using Nockx.Base.CryptographyTypes.Rsa;
+using Nockx.Base.NockxKeyDataStorageTypes;
 
 namespace Nockx.Base.CryptographyTypes;
 
@@ -9,6 +10,8 @@ public class NockxKey {
 	public required RsaKey RsaKey { get; init; }
 	public required MlKemKey MlKemKey { get; init; }
 	public required MlDsaKey MlDsaKey { get; init; }
+	
+	public bool IsInvalid => RsaKey.IsInvalid || MlKemKey.IsInvalid || MlDsaKey.IsInvalid;
 	
 	public NockxPublicKey Public {
 		get {
@@ -29,6 +32,7 @@ public class NockxKey {
 		if (File.Exists(fileName))
 			throw new InvalidOperationException("Private key file already exists");
 		
+		// TODO: generate one key file in C++ instead. This is inefficient and insecure because it reads the private key from the file into memory
 		MlKemKey.GenerateKeyFile();
 		MlDsaKey.GenerateKeyFile();
 		RsaKey.GenerateKeyFile();
@@ -56,4 +60,11 @@ public class NockxKey {
 
 		return aesKey.Decrypt(input.EncryptedData, additionalAuthenticationData);
 	}
+
+	public CombinedSignature Sign(byte[] data) => new () {
+		RsaSignature = RsaKey.Sign(data),
+		MlDsaSignature = MlDsaKey.Sign(data)
+	};
+	
+	public bool Verify(CombinedSignature signature, byte[] data) => Public.Verify(signature, data);
 }

@@ -1,7 +1,7 @@
 using Nockx.Base;
 using Nockx.Base.CryptographyTypes.MlKem;
 
-namespace Nockx.BaseTest.MlKemTests;
+namespace Nockx.BaseTest.MlKemKeyTests;
 
 public class GenerateReadTests {
 	[Fact]

@@ -2,6 +2,7 @@ using Nockx.Base.CryptographyTypes.Aes;
 using Nockx.Base.CryptographyTypes.MlDsa;
 using Nockx.Base.CryptographyTypes.MlKem;
 using Nockx.Base.CryptographyTypes.Rsa;
+using Nockx.Base.NockxKeyDataStorageTypes;
 
 namespace Nockx.Base.CryptographyTypes;
 
@@ -22,4 +23,6 @@ public class NockxPublicKey {
 			EncryptedData = cipherBytes
 		};
 	}
+	
+	public bool Verify(CombinedSignature signature, byte[] data) => RsaPublicKey.Verify(signature.RsaSignature, data) && MlDsaPublicKey.Verify(signature.MlDsaSignature, data);
 }

@@ -16,8 +16,8 @@ void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key) {
 	delete asymmetric_key;
 }
 
-void init_secure_heap() {
-	if (CRYPTO_secure_malloc_init(65536, 16) != 1)
+void init_secure_heap(const size_t size, const size_t minsize) {
+	if (CRYPTO_secure_malloc_init(size, minsize) != 1)
 		throw std::runtime_error("CRYPTO_secure_malloc_init failed");
 }
 
@@ -102,6 +102,8 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 		asymmetric_key = new AsymmetricKey(key_type, der_bytes, der_len);
 	} catch (...) {
 		asymmetric_key = nullptr;
+		fprintf(stderr, "Error constructing AsymmetricKey:\n");
+		ERR_print_errors_fp(stderr);
 	}
 
 	OPENSSL_clear_free(der_bytes, der_len);

@@ -14,7 +14,7 @@ struct AesKey;
 extern "C" {
 	EXPORT void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key);
 
-	EXPORT void init_secure_heap();
+	EXPORT void init_secure_heap(size_t size, size_t minsize);
 
 	EXPORT void free_pointer(void *ptr);
 

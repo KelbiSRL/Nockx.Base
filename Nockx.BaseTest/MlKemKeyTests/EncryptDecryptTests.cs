@@ -1,7 +1,7 @@
 using System.Text;
 using Nockx.Base.CryptographyTypes.MlKem;
 
-namespace Nockx.BaseTest.MlKemTests;
+namespace Nockx.BaseTest.MlKemKeyTests;
 
 public class EncryptDecryptTests {
 	[Fact]

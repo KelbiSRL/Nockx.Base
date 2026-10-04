@@ -14,7 +14,7 @@ public abstract class PublicKey {
 	protected PublicKey(byte[] rawKey) {
 		string keyType = Cryptography.GetKeyType(rawKey);
 		if (keyType != InstanceKeyType)
-			throw new InvalidOperationException($"Public {InstanceKeyType} was attempted to be created with {keyType} key data");
+			throw new InvalidOperationException($"Public {InstanceKeyType} key was attempted to be created with {keyType} key data");
 		
 		RawKey = [..rawKey];
 	}

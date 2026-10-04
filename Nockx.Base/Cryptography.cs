@@ -12,7 +12,7 @@ public static class Cryptography {
 	public const string MlDsa65 = MlDsaKey.KeyType;
 	public const string Rsa = RsaKey.KeyType;
 	
-	public static void InitSecureHeap() => Init.init_secure_heap();
+	public static void InitSecureHeap(ulong size = 1 << 20, ulong minSize = 16) => Init.init_secure_heap(size, minSize);
 	
 	public static string Md5Hash(string input) => MD5.HashData(Encoding.Default.GetBytes(input)).Aggregate(new StringBuilder(), (sb, cur) => sb.Append(cur.ToString("x2"))).ToString();
 
