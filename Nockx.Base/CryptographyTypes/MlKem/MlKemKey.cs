@@ -17,6 +17,9 @@ public sealed class MlKemKey : AsymmetricKey {
 	}
 
 	public static MlKemKey ReadKeyFromFile(string fileName) {
+		if (!File.Exists(fileName))
+			throw new FileNotFoundException(fileName);
+		
 		MlKemKey mlKemKey = HelperFunctions.ReadMlKemKeyFromFile(fileName);
 		return mlKemKey.IsInvalid ? throw new InvalidOperationException("ML-KEM private key could not be read") : mlKemKey;
 	}

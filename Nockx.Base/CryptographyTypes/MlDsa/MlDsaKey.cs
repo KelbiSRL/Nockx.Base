@@ -17,6 +17,9 @@ public sealed class MlDsaKey : AsymmetricKey {
 	}
 
 	public static MlDsaKey ReadKeyFromFile(string fileName) {
+		if (!File.Exists(fileName))
+			throw new FileNotFoundException(fileName);
+		
 		MlDsaKey mlDsaKey = HelperFunctions.ReadMlDsaKeyFromFile(fileName);
 		return mlDsaKey.IsInvalid ? throw new InvalidOperationException("ML-DSA private key could not be read") : mlDsaKey;
 	}

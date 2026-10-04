@@ -19,6 +19,9 @@ public sealed class RsaKey : AsymmetricKey {
 	}
 
 	public static RsaKey ReadKeyFromFile(string fileName) {
+		if (!File.Exists(fileName))
+			throw new FileNotFoundException(fileName);
+		
 		RsaKey rsaKey = HelperFunctions.ReadRsaKeyFromFile(fileName);
 		return rsaKey.IsInvalid ? throw new InvalidOperationException("RSA private key could not be read") : rsaKey;
 	}
