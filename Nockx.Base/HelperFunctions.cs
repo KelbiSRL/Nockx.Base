@@ -21,6 +21,9 @@ internal static partial class HelperFunctions {
 	
 	[LibraryImport("libnockx-base")]
 	internal static partial byte generate_key([MarshalAs(UnmanagedType.LPStr)] string keyType);
+	
+	[LibraryImport("libnockx-base")]
+	internal static partial byte generate_combined_nockx_key([MarshalAs(UnmanagedType.LPStr)] string fileName);
 
 	[LibraryImport("libnockx-base")]
 	internal static partial IntPtr get_key_type([In] byte[] publicKey, uint keySize);

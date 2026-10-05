@@ -62,6 +62,42 @@ unsigned char generate_key(const char *key_type) {
 	return 1;
 }
 
+unsigned char generate_combined_nockx_key(const char *file_name) {
+	OpenSSL_add_all_algorithms();
+	ERR_load_crypto_strings();
+
+	const std::vector key_types{"RSA", "ML-KEM-768", "ML-DSA-65"};
+
+	FILE *file = fopen(file_name, "a+");
+	if (!file) {
+		perror("fopen");
+		return 0;
+	}
+
+	for (const auto & key_type : key_types) {
+		EVP_PKEY *key = strcmp(key_type, "RSA") ? EVP_PKEY_Q_keygen(nullptr, nullptr, key_type) : EVP_PKEY_Q_keygen(nullptr, nullptr, key_type, 2048);
+
+		if (!key) {
+			fprintf(stderr, "Error generating key:\n");
+			ERR_print_errors_fp(stderr);
+			return 0;
+		}
+
+		if (!PEM_write_PrivateKey(file, key, nullptr, nullptr, 0, nullptr, nullptr)) {
+			fprintf(stderr, "Error writing private key:\n");
+			ERR_print_errors_fp(stderr);
+			fclose(file);
+			return 0;
+		}
+
+		EVP_PKEY_free(key);
+	}
+
+	fclose(file);
+
+	return 1;
+}
+
 AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	BIO *bio = BIO_new_file(file_name, "r");
 	if (!bio) {

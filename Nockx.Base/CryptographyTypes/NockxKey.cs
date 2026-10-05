@@ -18,11 +18,7 @@ public class NockxKey {
 			if (field is not null)
 				return field;
 
-			field = new NockxPublicKey {
-				RsaPublicKey = RsaKey.Public,
-				MlKemPublicKey = MlKemKey.Public,
-				MlDsaPublicKey = MlDsaKey.Public
-			};
+			field = new NockxPublicKey(RsaKey.Public, MlKemKey.Public, MlDsaKey.Public);
 			
 			return field;
 		}
@@ -32,18 +28,8 @@ public class NockxKey {
 		if (File.Exists(fileName))
 			throw new InvalidOperationException("Private key file already exists");
 		
-		// TODO: generate one key file in C++ instead. This is inefficient and insecure because it reads the private key from the file into memory
-		MlKemKey.GenerateKeyFile();
-		MlDsaKey.GenerateKeyFile();
-		RsaKey.GenerateKeyFile();
-		
-		File.AppendAllText(fileName, File.ReadAllText($"{MlKemKey.KeyType.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
-		File.AppendAllText(fileName, File.ReadAllText($"{MlDsaKey.KeyType.ToLowerInvariant()}_private_key.pem").Trim() + '\n');
-		File.AppendAllText(fileName, File.ReadAllText($"{RsaKey.KeyType.ToLowerInvariant()}_private_key.pem"));
-		
-		File.Delete($"{MlKemKey.KeyType.ToLowerInvariant()}_private_key.pem");
-		File.Delete($"{MlDsaKey.KeyType.ToLowerInvariant()}_private_key.pem");
-		File.Delete($"{RsaKey.KeyType.ToLowerInvariant()}_private_key.pem");
+		if (HelperFunctions.generate_combined_nockx_key(fileName) == 0)
+			throw new InvalidOperationException("Error during NockxKey generation");
 	}
 
 	public static NockxKey ReadKeyFromFile(string fileName = "private_key.pem") => new () {

@@ -22,6 +22,8 @@ extern "C" {
 
 	EXPORT unsigned char generate_key(const char *key_type);
 
+	EXPORT unsigned char generate_combined_nockx_key(const char *file_name);
+
 	EXPORT AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type);
 
 	EXPORT unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_key_size);

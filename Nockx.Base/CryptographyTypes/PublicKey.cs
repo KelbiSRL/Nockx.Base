@@ -18,4 +18,6 @@ public abstract class PublicKey {
 		
 		RawKey = [..rawKey];
 	}
+
+	public override string ToString() => Convert.ToBase64String([..RawKey]);
 }
