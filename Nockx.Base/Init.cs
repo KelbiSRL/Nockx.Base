@@ -4,5 +4,8 @@ namespace Nockx.Base;
 
 internal static partial class Init {
 	[LibraryImport("libnockx-base")]
+	internal static partial byte disable_core_dumping();
+	
+	[LibraryImport("libnockx-base")]
 	internal static partial void init_secure_heap(ulong size, ulong minSize);
 }

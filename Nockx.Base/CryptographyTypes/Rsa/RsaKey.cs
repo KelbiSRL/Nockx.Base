@@ -39,13 +39,15 @@ public sealed class RsaKey : AsymmetricKey {
 		if (signaturePointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be signed with RSA");
 
-		byte[] signature = new byte[signatureSize];
-		fixed (byte *signaturePtr = signature)
-			Buffer.MemoryCopy((void *) signaturePointer, signaturePtr, signatureSize, signatureSize);
-		
-		HelperFunctions.free_openssl_pointer((void *) signaturePointer);
-		
-		return signature;
+		try {
+			byte[] signature = new byte[signatureSize];
+			fixed (byte *signaturePtr = signature)
+				Buffer.MemoryCopy((void *) signaturePointer, signaturePtr, signatureSize, signatureSize);
+
+			return signature;
+		} finally {
+			HelperFunctions.free_openssl_pointer((void *) signaturePointer, signatureSize);
+		}
 	}
 
 	public bool Verify(byte[] signature, byte[] data) => Public.Verify(signature, data);

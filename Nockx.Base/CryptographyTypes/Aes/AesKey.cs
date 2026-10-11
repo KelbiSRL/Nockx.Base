@@ -32,20 +32,22 @@ public class AesKey : SafeHandle {
 
 		if (iv.Length != IvLength)
 			throw new ArgumentOutOfRangeException(nameof(iv), $"IV length must be {IvLength} (got {iv.Length})");
-		
+
 		ulong ciphertextLength;
 		IntPtr ciphertextPointer = AesCryptography.encrypt_with_aes_gcm(data, (ulong) data.LongLength, this, iv, additionalAuthenticationData, (ulong) additionalAuthenticationData.LongLength, &ciphertextLength);
 		if (ciphertextPointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be encrypted with AES-GCM");
 
-		byte[] ciphertext = new byte[IvLength + ciphertextLength];
-		Buffer.BlockCopy(iv, 0, ciphertext, 0, IvLength);
-		fixed (byte *ciphertextPtr = ciphertext)
-			Buffer.MemoryCopy((void *) ciphertextPointer, ciphertextPtr + IvLength, ciphertextLength, ciphertextLength);
-		
-		HelperFunctions.free_openssl_pointer((void *) ciphertextPointer);
-		
-		return ciphertext;
+		try {
+			byte[] ciphertext = new byte[IvLength + ciphertextLength];
+			Buffer.BlockCopy(iv, 0, ciphertext, 0, IvLength);
+			fixed (byte *ciphertextPtr = ciphertext)
+				Buffer.MemoryCopy((void *) ciphertextPointer, ciphertextPtr + IvLength, ciphertextLength, ciphertextLength);
+
+			return ciphertext;
+		} finally {
+			HelperFunctions.free_openssl_pointer((void *) ciphertextPointer, ciphertextLength);
+		}
 	}
 	
 	public unsafe byte[] Decrypt(byte[] data, byte[]? additionalAuthenticationData = null) {
@@ -59,13 +61,15 @@ public class AesKey : SafeHandle {
 		if (plaintextPointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be decrypted with AES-GCM");
 
-		byte[] plaintext = new byte[plaintextLength];
-		fixed (byte *plaintextPtr = plaintext)
-			Buffer.MemoryCopy((void *) plaintextPointer, plaintextPtr, plaintextLength, plaintextLength);
-		
-		HelperFunctions.free_openssl_pointer((void *) plaintextPointer);
-		
-		return plaintext;
+		try {
+			byte[] plaintext = new byte[plaintextLength];
+			fixed (byte *plaintextPtr = plaintext)
+				Buffer.MemoryCopy((void *) plaintextPointer, plaintextPtr, plaintextLength, plaintextLength);
+
+			return plaintext;
+		} finally {
+			HelperFunctions.free_openssl_pointer((void *) plaintextPointer, plaintextLength);
+		}
 	}
 	
 	protected override bool ReleaseHandle() {

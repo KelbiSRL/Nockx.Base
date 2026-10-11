@@ -32,12 +32,14 @@ public sealed class MlKemKey : AsymmetricKey {
 		if (singlyDecryptedAesKeyPointer == IntPtr.Zero)
 			throw new InvalidOperationException("AES key could not be decrypted with ML-KEM");
 
-		byte[] singlyDecryptedAesKey = new byte[singlyDecryptedAesKeyLength];
-		fixed (byte *singlyDecryptedAesKeyPtr = singlyDecryptedAesKey)
-			Buffer.MemoryCopy((void *) singlyDecryptedAesKeyPointer, singlyDecryptedAesKeyPtr, singlyDecryptedAesKeyLength, singlyDecryptedAesKeyLength);
-		
-		HelperFunctions.free_openssl_pointer((void *) singlyDecryptedAesKeyPointer);
-		
-		return singlyDecryptedAesKey;
+		try {
+			byte[] singlyDecryptedAesKey = new byte[singlyDecryptedAesKeyLength];
+			fixed (byte *singlyDecryptedAesKeyPtr = singlyDecryptedAesKey)
+				Buffer.MemoryCopy((void *) singlyDecryptedAesKeyPointer, singlyDecryptedAesKeyPtr, singlyDecryptedAesKeyLength, singlyDecryptedAesKeyLength);
+
+			return singlyDecryptedAesKey;
+		} finally {
+			HelperFunctions.free_openssl_pointer((void *) singlyDecryptedAesKeyPointer, singlyDecryptedAesKeyLength);
+		}
 	}
 }

@@ -150,7 +150,6 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 
 	const size_t actual_ciphertext_len = ciphertext_len - TAG_LEN;
 
-	// TODO: possibly secure alloc this
 	auto plaintext = static_cast<unsigned char *>(OPENSSL_malloc(actual_ciphertext_len));
 	if (!plaintext) {
 		fprintf(stderr, "Failed to allocate plaintext:\n");

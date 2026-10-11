@@ -1,8 +1,15 @@
-// TODO: disable core dumping as much as possible (Linux: RLIMIT_CORE and MADV_DONTDUMP (may not stop it fully on android. /data/tombstones has to be checked to see if it still gets dumped), MacOS: also RLIMIT_CORE, but crashreporterd would have to be disabled as well by the user, Windows: probably with WerAddExcludedApplication and SetUnhandledExceptionFilter). Core dumping can lead keys to be stored to the drive.
-
 #include "library.h"
 
 #include "secure_key.h"
+
+#ifdef _WIN32
+	#include <windows.h>
+#else
+	#include <sys/resource.h>
+	#ifdef __linux__
+		#include <sys/prctl.h>
+	#endif
+#endif
 
 #include <string>
 #include <vector>
@@ -12,8 +19,32 @@
 #include <openssl/err.h>
 #include <openssl/pem.h>
 
+namespace {
+#ifdef _WIN32
+	LONG WINAPI die_quietly(EXCEPTION_POINTERS *ep) {
+		TerminateProcess(GetCurrentProcess(), ep->ExceptionRecord->ExceptionCode);
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+#endif
+}
+
 void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key) {
 	delete asymmetric_key;
+}
+
+unsigned char disable_core_dumping() noexcept {
+	unsigned char success = 1;
+#ifdef _WIN32
+	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+	SetUnhandledExceptionFilter(die_quietly);
+#else
+	rlimit rl{0, 0};
+	success &= setrlimit(RLIMIT_CORE, &rl) == 0;
+  #ifdef __linux__
+	success &= prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) == 0;
+  #endif
+#endif
+	return success;
 }
 
 void init_secure_heap(const size_t size, const size_t minsize) {
@@ -25,8 +56,8 @@ void free_pointer(void *ptr) {
 	free(ptr);
 }
 
-void free_openssl_pointer(void *ptr) {
-	OPENSSL_free(ptr);
+void free_openssl_pointer(void *ptr, const uint64_t size) {
+	OPENSSL_clear_free(ptr, size);
 }
 
 unsigned char generate_key(const char *key_type) {

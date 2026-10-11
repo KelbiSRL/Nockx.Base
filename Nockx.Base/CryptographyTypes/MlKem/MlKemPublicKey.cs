@@ -13,12 +13,14 @@ public class MlKemPublicKey : PublicKey {
 		if (encryptedAesKeyPointer == IntPtr.Zero)
 			throw new InvalidOperationException("AES key could not be encrypted with RSA");
 
-		byte[] encryptedAesKey = new byte[encryptedAesKeyLength];
-		fixed (byte *encryptedAesKeyPtr = encryptedAesKey)
-			Buffer.MemoryCopy((void *) encryptedAesKeyPointer, encryptedAesKeyPtr, encryptedAesKeyLength, encryptedAesKeyLength);
-		
-		HelperFunctions.free_openssl_pointer((void *) encryptedAesKeyPointer);
-		
-		return encryptedAesKey;
+		try {
+			byte[] encryptedAesKey = new byte[encryptedAesKeyLength];
+			fixed (byte *encryptedAesKeyPtr = encryptedAesKey)
+				Buffer.MemoryCopy((void *) encryptedAesKeyPointer, encryptedAesKeyPtr, encryptedAesKeyLength, encryptedAesKeyLength);
+
+			return encryptedAesKey;
+		} finally {
+			HelperFunctions.free_openssl_pointer((void *) encryptedAesKeyPointer, encryptedAesKeyLength);
+		}
 	}
 }

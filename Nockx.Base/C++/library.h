@@ -14,11 +14,13 @@ struct AesKey;
 extern "C" {
 	EXPORT void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key);
 
+	EXPORT unsigned char disable_core_dumping() noexcept;
+
 	EXPORT void init_secure_heap(size_t size, size_t minsize);
 
 	EXPORT void free_pointer(void *ptr);
 
-	EXPORT void free_openssl_pointer(void *ptr);
+	EXPORT void free_openssl_pointer(void *ptr, uint64_t size);
 
 	EXPORT unsigned char generate_key(const char *key_type);
 

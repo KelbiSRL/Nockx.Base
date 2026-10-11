@@ -11,6 +11,8 @@ public static class Cryptography {
 	public const string MlKem768 = MlKemKey.KeyType;
 	public const string MlDsa65 = MlDsaKey.KeyType;
 	public const string Rsa = RsaKey.KeyType;
+
+	public static bool DisableCoreDumping() => Init.disable_core_dumping() != 0;
 	
 	public static void InitSecureHeap(ulong size = 1 << 20, ulong minSize = 16) => Init.init_secure_heap(size, minSize);
 	
