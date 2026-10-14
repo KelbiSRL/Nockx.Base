@@ -41,6 +41,14 @@ extern "C" {
 	EXPORT uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, size_t plaintext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, size_t extra_auth_data_len, size_t *ciphertext_len);
 
 	EXPORT uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, size_t extra_auth_data_len, size_t *plaintext_len);
+
+	EXPORT EVP_CIPHER_CTX *create_gcm_context_for_stream(uint8_t for_encryption, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, size_t extra_auth_data_len);
+
+	EXPORT int gcm_stream_update(EVP_CIPHER_CTX *ctx, const uint8_t *in, int in_len, uint8_t *out);
+
+	EXPORT uint8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, uint8_t for_encryption, uint8_t *tag);
+
+	EXPORT void gcm_stream_dispose(EVP_CIPHER_CTX *ctx);
 }
 
 #endif //NOCKX_BASE_AES_CRYPTO_H

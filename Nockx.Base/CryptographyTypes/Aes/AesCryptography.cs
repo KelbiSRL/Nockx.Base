@@ -7,7 +7,7 @@ internal static partial class AesCryptography {
 	internal static partial AesKey create_aes_key();
 
 	[LibraryImport("libnockx-base")]
-	internal static partial void destroy_aes_key(AesKey aesKey);
+	internal static partial void destroy_aes_key(IntPtr aesKey);
 
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial int generate_iv(byte *iv);
@@ -17,4 +17,16 @@ internal static partial class AesCryptography {
 
 	[LibraryImport("libnockx-base")]
 	internal static unsafe partial IntPtr decrypt_with_aes_gcm([In] byte[] ciphertext, ulong ciphertextLength, AesKey aesKey, [In] byte[] iv, [In] byte[] aad, ulong aadLength, ulong *plaintextLength);
+	
+	[LibraryImport("libnockx-base")]
+	internal static partial AesGcmStreamContext create_gcm_context_for_stream(byte forEncryption, AesKey aesKey, [In] byte[] iv, [In] byte[] aad, ulong aadLength);
+	
+	[LibraryImport("libnockx-base")]
+	internal static unsafe partial int gcm_stream_update(AesGcmStreamContext ctx, byte *input, int inputLength, byte *output);
+	
+	[LibraryImport("libnockx-base")]
+	internal static unsafe partial byte gcm_stream_final(AesGcmStreamContext ctx, byte forEncryption, byte *tag);
+	
+	[LibraryImport("libnockx-base")]
+	internal static partial void gcm_stream_dispose(IntPtr ctx);
 }

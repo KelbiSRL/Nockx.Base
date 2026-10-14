@@ -5,10 +5,15 @@ using Nockx.Base.CryptographyTypes.Rsa;
 
 namespace Nockx.Base.CryptographyTypes;
 
-public abstract class AsymmetricKey() : SafeHandle(IntPtr.Zero, true) {
+public abstract class AsymmetricKey : SafeHandle {
 	private protected abstract string InstanceKeyType { get; }
 	
 	public sealed override bool IsInvalid => handle == IntPtr.Zero;
+	
+	/**
+	 * Creating an instance of <see cref="AsymmetricKey"/> does not yield a valid instance. Use a P/Invoked C++ function instead
+	 */
+	protected AsymmetricKey() : base(IntPtr.Zero, true) { }
 	
 	public unsafe PublicKey Public {
 		get {

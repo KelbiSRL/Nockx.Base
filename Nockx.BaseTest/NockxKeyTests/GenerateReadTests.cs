@@ -4,8 +4,11 @@ namespace Nockx.BaseTest.NockxKeyTests;
 
 public class GenerateReadTests {
 	[Fact]
-	public void ReadSuccess() => Assert.False(NockxKey.ReadKeyFromFile("nockxtestkey.pem").IsInvalid);
-	
+	public void ReadSuccess() {
+		using NockxKey nockxKey = NockxKey.ReadKeyFromFile("nockxtestkey.pem");
+		Assert.False(nockxKey.IsInvalid);
+	}
+
 	[Fact]
 	public void ReadInvalidKeyFail() => Assert.Throws<InvalidOperationException>(() => NockxKey.ReadKeyFromFile("invalidtestkey.pem"));
 	
@@ -15,7 +18,8 @@ public class GenerateReadTests {
 	[Fact]
 	public void GenerateReadSuccess() {
 		NockxKey.GenerateCombinedKeyFile();
-		Assert.False(NockxKey.ReadKeyFromFile().IsInvalid);
+		using NockxKey nockxKey = NockxKey.ReadKeyFromFile(); 
+		Assert.False(nockxKey.IsInvalid);
 		
 		File.Delete("private_key.pem");
 	}

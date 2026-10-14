@@ -28,7 +28,7 @@ public class NockxPublicKey {
 	}
 	
 	public EncryptedKeyDataPair EncryptBytes(byte[] input, byte[]? additionalAuthenticationData = null) {
-		AesKey aesKey = AesKey.Generate();
+		using AesKey aesKey = AesKey.Generate();
 	
 		byte[] cipherBytes = aesKey.Encrypt(input, additionalAuthenticationData);
 		byte[] rsaEncryptedAesKey = RsaPublicKey.EncryptAesKey(aesKey);

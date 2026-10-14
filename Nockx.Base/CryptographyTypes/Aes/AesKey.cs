@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Nockx.Base.CryptographyTypes.Aes;
 
 public class AesKey : SafeHandle {
-	private const int IvLength = 12;
+	public const int IvLength = 12;
 	
 	public override bool IsInvalid => handle == IntPtr.Zero;
 
@@ -73,7 +73,7 @@ public class AesKey : SafeHandle {
 	}
 	
 	protected override bool ReleaseHandle() {
-		AesCryptography.destroy_aes_key(this);
+		AesCryptography.destroy_aes_key(handle);
 		return true;
 	}
 }

@@ -9,20 +9,20 @@ public class EncryptDecryptTests {
 	public void EncryptDecryptSuccess() {
 		const string input = "Hello";
 		
-		RsaKey rsaKey = RsaKey.ReadKeyFromFile("rsatestkey.pem");
-		AesKey aesKey = AesKey.Generate();
+		using RsaKey rsaKey = RsaKey.ReadKeyFromFile("rsatestkey.pem");
+		using AesKey aesKey = AesKey.Generate();
 		byte[] encryptedBytes = aesKey.Encrypt(Encoding.UTF8.GetBytes(input));
-		AesKey decryptedAesKey = rsaKey.DecryptAesKey(rsaKey.EncryptAesKey(aesKey));
+		using AesKey decryptedAesKey = rsaKey.DecryptAesKey(rsaKey.EncryptAesKey(aesKey));
 		Assert.Equal(input, Encoding.UTF8.GetString(decryptedAesKey.Decrypt(encryptedBytes)));
 	}
 	
 	[Fact]
 	public void EncryptDecryptWrongKeyFail() {
-		RsaKey rsaKey = RsaKey.ReadKeyFromFile("rsatestkey.pem");
-		AesKey aesKey = AesKey.Generate();
+		using RsaKey rsaKey = RsaKey.ReadKeyFromFile("rsatestkey.pem");
+		using AesKey aesKey = AesKey.Generate();
 
 		byte[] encryptedAesKey = rsaKey.EncryptAesKey(aesKey);
-		rsaKey = RsaKey.ReadKeyFromFile("rsatestkey2.pem");
-		Assert.Throws<InvalidOperationException>(() => rsaKey.DecryptAesKey(encryptedAesKey));
+		using RsaKey rsaKey2 = RsaKey.ReadKeyFromFile("rsatestkey2.pem");
+		Assert.Throws<InvalidOperationException>(() => rsaKey2.DecryptAesKey(encryptedAesKey));
 	}
 }

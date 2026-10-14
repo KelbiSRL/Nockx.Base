@@ -6,7 +6,7 @@ using Nockx.Base.NockxKeyDataStorageTypes;
 
 namespace Nockx.Base.CryptographyTypes;
 
-public class NockxKey {
+public class NockxKey : IDisposable {
 	public required RsaKey RsaKey { get; init; }
 	public required MlKemKey MlKemKey { get; init; }
 	public required MlDsaKey MlDsaKey { get; init; }
@@ -42,7 +42,7 @@ public class NockxKey {
 	
 	public byte[] DecryptBytes(EncryptedKeyDataPair input, byte[]? additionalAuthenticationData = null) {
 		byte[] singlyEncryptedAesKey = MlKemKey.DecryptAesKey(input.EncryptedAesKey);
-		AesKey aesKey = RsaKey.DecryptAesKey(singlyEncryptedAesKey);
+		using AesKey aesKey = RsaKey.DecryptAesKey(singlyEncryptedAesKey);
 
 		return aesKey.Decrypt(input.EncryptedData, additionalAuthenticationData);
 	}
@@ -53,4 +53,11 @@ public class NockxKey {
 	};
 	
 	public bool Verify(CombinedSignature signature, byte[] data) => Public.Verify(signature, data);
+	
+	public void Dispose() {
+		GC.SuppressFinalize(this);
+		RsaKey.Dispose();
+		MlKemKey.Dispose();
+		MlDsaKey.Dispose();
+	}
 }

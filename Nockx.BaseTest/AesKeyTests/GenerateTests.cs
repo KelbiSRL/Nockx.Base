@@ -4,5 +4,8 @@ namespace Nockx.BaseTest.AesKeyTests;
 
 public class GenerateTests {
 	[Fact]
-	public void GenerateSuccess() => Assert.False(AesKey.Generate().IsInvalid);
+	public void GenerateSuccess() {
+		using AesKey aesKey = AesKey.Generate();
+		Assert.False(aesKey.IsInvalid);
+	}
 }
