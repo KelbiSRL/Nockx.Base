@@ -46,7 +46,7 @@ extern "C" {
 
 	EXPORT int gcm_stream_update(EVP_CIPHER_CTX *ctx, const uint8_t *in, int in_len, uint8_t *out);
 
-	EXPORT uint8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, uint8_t for_encryption, uint8_t *tag);
+	EXPORT int8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, uint8_t for_encryption, uint8_t *tag);
 
 	EXPORT void gcm_stream_dispose(EVP_CIPHER_CTX *ctx);
 }

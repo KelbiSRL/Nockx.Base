@@ -25,7 +25,7 @@ internal static partial class AesCryptography {
 	internal static unsafe partial int gcm_stream_update(AesGcmStreamContext ctx, byte *input, int inputLength, byte *output);
 	
 	[LibraryImport("libnockx-base")]
-	internal static unsafe partial byte gcm_stream_final(AesGcmStreamContext ctx, byte forEncryption, byte *tag);
+	internal static unsafe partial sbyte gcm_stream_final(AesGcmStreamContext ctx, byte forEncryption, byte *tag);
 	
 	[LibraryImport("libnockx-base")]
 	internal static partial void gcm_stream_dispose(IntPtr ctx);

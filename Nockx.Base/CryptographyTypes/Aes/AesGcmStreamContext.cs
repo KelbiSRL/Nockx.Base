@@ -4,6 +4,7 @@ namespace Nockx.Base.CryptographyTypes.Aes;
 
 public class AesGcmStreamContext : SafeHandle {
 	public override bool IsInvalid => handle == IntPtr.Zero;
+	public bool ForEncryption { get; private set; }
 	
 	/**
 	 * Creating an instance of <see cref="AesGcmStreamContext"/> does not yield a valid instance. Use <see cref="Generate">AesGcmStreamContext.Generate</see>
@@ -12,6 +13,7 @@ public class AesGcmStreamContext : SafeHandle {
 	
 	public static AesGcmStreamContext Generate(bool forEncryption, AesKey aesKey, byte[] iv, byte[] aad) {
 		AesGcmStreamContext stream = AesCryptography.create_gcm_context_for_stream(forEncryption ? (byte) 1 : (byte) 0, aesKey, iv, aad, (ulong) aad.LongLength);
+		stream.ForEncryption = forEncryption;
 		return stream.IsInvalid ? throw new InvalidOperationException($"{nameof(AesGcmStreamContext)} could not be created") : stream;
 	}
 

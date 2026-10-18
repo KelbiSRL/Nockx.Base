@@ -216,8 +216,8 @@ EVP_CIPHER_CTX *create_gcm_context_for_stream(const uint8_t for_encryption, cons
 		return nullptr;
 	}
 
-	int outlen = 0;
-	if (extra_auth_data && extra_auth_data_len > 0 && EVP_CipherUpdate(ctx, nullptr, &outlen, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
+	int out_len = 0;
+	if (extra_auth_data && extra_auth_data_len > 0 && EVP_CipherUpdate(ctx, nullptr, &out_len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to set additional authentication data:\n");
 		ERR_print_errors_fp(stderr);
 		EVP_CIPHER_CTX_free(ctx);
@@ -233,35 +233,41 @@ int gcm_stream_update(EVP_CIPHER_CTX *ctx, const uint8_t *in, const int in_len, 
 		return -1;
 	}
 
-	int outlen = 0;
-	if (EVP_CipherUpdate(ctx, out, &outlen, in, in_len) != 1) {
+	int out_len = 0;
+	if (EVP_CipherUpdate(ctx, out, &out_len, in, in_len) != 1) {
 		fprintf(stderr, "Failed to update stream:\n");
 		ERR_print_errors_fp(stderr);
 		return -1;
 	}
 
-	return outlen;
+	return out_len;
 }
 
-uint8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, const uint8_t for_encryption, uint8_t *tag) {
+int8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, const uint8_t for_encryption, uint8_t *tag) {
 	if (!ctx) {
 		fprintf(stderr, "Passed context is null:\n");
-		return 0;
+		return -1;
 	}
 
-	int outlen = 0;
+	int out_len = 0;
 	uint8_t dummy[16];
 	if (!for_encryption) {
-		if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag) != 1)
-			return 0;
+		if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag) != 1) {
+			fprintf(stderr, "Failed to verify tag:\n");
+			ERR_print_errors_fp(stderr);
+			return -1;
+		}
 
-		return EVP_CipherFinal_ex(ctx, dummy, &outlen) > 0;
+		return EVP_CipherFinal_ex(ctx, dummy, &out_len) > 0;
 	}
 
-	if (EVP_CipherFinal_ex(ctx, dummy, &outlen) != 1)
-		return 0;
+	if (EVP_CipherFinal_ex(ctx, dummy, &out_len) != 1) {
+		fprintf(stderr, "Failed to generate tag:\n");
+		ERR_print_errors_fp(stderr);
+		return -1;
+	}
 
-	return EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN, tag) == 1;
+	return EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN, tag) == 1 ? 1 : -1;
 }
 
 void gcm_stream_dispose(EVP_CIPHER_CTX *ctx) {

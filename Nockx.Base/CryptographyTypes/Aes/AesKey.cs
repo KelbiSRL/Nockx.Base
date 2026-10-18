@@ -4,6 +4,7 @@ namespace Nockx.Base.CryptographyTypes.Aes;
 
 public class AesKey : SafeHandle {
 	public const int IvLength = 12;
+	public const int TagLength = 16;
 	
 	public override bool IsInvalid => handle == IntPtr.Zero;
 

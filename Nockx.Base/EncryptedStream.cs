@@ -19,7 +19,7 @@ public class EncryptedStream : Stream {
 		if (iv is null) {
 			Iv = new byte[AesKey.IvLength];
 
-			fixed (byte * ivPtr = Iv)
+			fixed (byte *ivPtr = Iv)
 				if (AesCryptography.generate_iv(ivPtr) != 1)
 					throw new InvalidOperationException("IV could not be generated");
 		} else {
@@ -34,6 +34,26 @@ public class EncryptedStream : Stream {
 
 	public override void Flush() => _underlyingStream.Flush();
 
+	public unsafe byte[] CalculateTag() {
+		if (!_context.ForEncryption)
+			throw new InvalidOperationException("Tried to calculate tag for decryption stream");
+
+		byte[] tag = new byte[AesKey.TagLength];
+		fixed (byte *tagPtr = tag)
+			return AesCryptography.gcm_stream_final(_context, 1, tagPtr) != -1 ? tag : throw new CryptographicException("Calculating tag failed");
+	}
+
+	public unsafe bool VerifyTag(byte[] tag) {
+		if (_context.ForEncryption)
+			throw new InvalidOperationException("Tried to calculate tag for encryption stream");
+
+		sbyte returnVal;
+		fixed (byte *tagPtr = tag)
+			returnVal = AesCryptography.gcm_stream_final(_context, 0, tagPtr);
+		
+		return returnVal == -1 ? throw new CryptographicException("Verifying tag failed") : returnVal != 0;
+	}
+	
 	public override unsafe int Read(byte[] buffer, int offset, int count) {
 		byte[] underlyingBuffer = new byte[count];
 		int read = _underlyingStream.Read(underlyingBuffer, 0, count);
@@ -43,8 +63,6 @@ public class EncryptedStream : Stream {
 				return finalRead < 0 ? throw new CryptographicException() : finalRead;
 			}
 		}
-
-		// TODO: do final here
 	}
 	
 	/**
@@ -87,7 +105,11 @@ public class EncryptedStream : Stream {
 	public override bool CanSeek => false;
 	public override bool CanWrite => _underlyingStream.CanWrite;
 	public override long Length => _underlyingStream.Length;
-	public override long Position { get; set => throw new NotSupportedException("Tried to set position of a forward-only stream"); }
+
+	public override long Position {
+		get => _underlyingStream.Position;
+		set => throw new NotSupportedException("Tried to set position of a forward-only stream");
+	}
 	
 	protected override void Dispose(bool disposing) {
 		if (!_isDisposed) {
