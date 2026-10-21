@@ -23,4 +23,27 @@
         <None Include="..\nockx-logo.png" Pack="true" PackagePath="" />
     </ItemGroup>
     
+    <PropertyGroup>
+        <NativeSrcDir>$(MSBuildProjectDirectory)/C++</NativeSrcDir>
+        <NativeConfig Condition="'$(Configuration)' == 'Debug'">Debug</NativeConfig>
+        <NativeConfig Condition="'$(Configuration)' != 'Debug'">Release</NativeConfig>
+        <NativeBuildDir>$(MSBuildProjectDirectory)/obj/native/$(NativeConfig)</NativeBuildDir>
+        <NativeOutDir>$(NativeBuildDir)/out</NativeOutDir>
+    </PropertyGroup>
+
+    <Target Name="BuildNative" BeforeTargets="AssignTargetPaths">
+        <Exec Command="cmake -S &quot;$(NativeSrcDir)&quot; -B &quot;$(NativeBuildDir)&quot; -DCMAKE_BUILD_TYPE=$(NativeConfig) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=&quot;$(NativeOutDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=&quot;$(NativeOutDir)&quot; -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_$(NativeConfig.ToUpper())=&quot;$(NativeOutDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_$(NativeConfig.ToUpper())=&quot;$(NativeOutDir)&quot;" />
+
+        <Exec Command="cmake --build &quot;$(NativeBuildDir)&quot; --config $(NativeConfig)" />
+
+        <ItemGroup>
+            <NativeLibs Include="$(NativeOutDir)/*.dll;$(NativeOutDir)/*.so;$(NativeOutDir)/*.dylib" />
+            <None Include="@(NativeLibs)">
+                <Link>%(Filename)%(Extension)</Link>
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <Visible>false</Visible>
+            </None>
+        </ItemGroup>
+    </Target>
+    
 </Project>
