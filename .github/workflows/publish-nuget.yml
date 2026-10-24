@@ -129,7 +129,7 @@ jobs:
             fi
             echo "Packing version $VERSION"
             echo "VERSION=$VERSION" >> $GITHUB_ENV
-          dotnet pack Nockx.Base/Nockx.Base.csproj -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
+            dotnet pack Nockx.Base/Nockx.Base.csproj -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
 
       - uses: actions/upload-artifact@v4
         with:
