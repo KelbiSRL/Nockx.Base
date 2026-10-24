@@ -3,6 +3,7 @@
 
 #include "secure_key.h"
 
+#include <cstring>
 #include <string>
 
 struct AsymmetricKey {

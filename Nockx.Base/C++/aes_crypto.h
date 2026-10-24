@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <cstring>
 #include <openssl/rand.h>
 
 #ifdef _WIN32
