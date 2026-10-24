@@ -21,6 +21,7 @@
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="" />
         <None Include="..\nockx-logo.png" Pack="true" PackagePath="" />
+        <None Include="OPENSSL-LICENSE.txt" Pack="true" PackagePath="" Condition="Exists('OPENSSL-LICENSE.txt')" />
     </ItemGroup>
     
     <PropertyGroup>

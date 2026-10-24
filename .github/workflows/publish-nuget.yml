@@ -1,0 +1,140 @@
+name: build
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-22.04
+          - rid: osx-x64
+            os: macos-15-intel
+          - rid: osx-arm64
+            os: macos-14
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt update && sudo apt install -y libssl-dev
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl@3
+          echo "CMAKE_EXTRA=-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+
+      - name: Install OpenSSL (Windows, shared, via vcpkg)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          vcpkg install openssl:x64-windows
+          echo "CMAKE_EXTRA=-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows" >> $GITHUB_ENV
+
+      - name: Configure, build, install
+        shell: bash
+        run: |
+          cmake -S "C++" -B build -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA
+          cmake --build build --config Release
+          cmake --install build --config Release --prefix out
+
+      - name: Bundle OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cp -L /usr/lib/x86_64-linux-gnu/libssl.so.3 out/
+          cp -L /usr/lib/x86_64-linux-gnu/libcrypto.so.3 out/
+
+      - name: Bundle OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libssl-3-x64.dll" out/
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libcrypto-3-x64.dll" out/
+
+      - name: Bundle OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          P=$(brew --prefix openssl@3)/lib
+          cp -L $P/libssl.3.dylib $P/libcrypto.3.dylib out/
+          chmod u+w out/*.dylib
+          cd out
+          install_name_tool -id @rpath/libcrypto.3.dylib libcrypto.3.dylib
+          install_name_tool -id @rpath/libssl.3.dylib libssl.3.dylib
+          for f in libssl.3.dylib libnockx-base.dylib; do
+            for dep in $(otool -L $f | awk '/libcrypto.3.dylib|libssl.3.dylib/ {print $1}'); do
+              install_name_tool -change "$dep" "@rpath/$(basename $dep)" $f
+            done
+          done
+          codesign --force -s - *.dylib
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: out/*
+
+  publish:
+    needs: native
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: tmp
+
+      - name: Arrange runtimes folder
+        run: |
+          for d in tmp/native-*; do
+            rid=${d#tmp/native-}
+            mkdir -p runtimes/$rid/native
+            cp $d/* runtimes/$rid/native/
+          done
+
+      - name: Fetch OpenSSL license
+        run: |
+          {
+            echo "This package bundles OpenSSL (https://www.openssl.org), which is licensed under"
+            echo "the Apache License 2.0. Copyright The OpenSSL Project Authors."
+            echo
+            echo "-----"
+            echo
+            curl -fsSL https://raw.githubusercontent.com/openssl/openssl/openssl-3.0/LICENSE.txt
+          } > OPENSSL-LICENSE.txt
+
+      - name: Pack
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet pack -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg/*.nupkg
+
+#      - name: Pack
+#        run: dotnet pack -c Release -p:BuildNative=false -p:Version=${GITHUB_REF_NAME#v} -o nupkg
+
+#      - name: NuGet login (OIDC -> temp API key)
+#        id: login
+#        uses: NuGet/login@v1
+#        with:
+#          user: ${{ secrets.NUGET_USER }}
+
+#      - name: Push
+#        run: dotnet nuget push "nupkg/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
