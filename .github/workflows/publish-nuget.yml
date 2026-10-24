@@ -7,7 +7,7 @@ on:
     
 jobs:
   native:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit, '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v')
+    if: "github.event_name == 'workflow_dispatch' || contains(github.event.head_commit, '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v')"
     strategy:
       fail-fast: false
       matrix:
