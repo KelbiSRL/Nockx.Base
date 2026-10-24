@@ -2,10 +2,12 @@ name: build
 
 on:
   push:
-    tags: ['v*']
-
+    branches: [master]
+  workflow_dispatch: 
+    
 jobs:
   native:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit, '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v')
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +44,7 @@ jobs:
       - name: Configure, build, install
         shell: bash
         run: |
-          cmake -S "C++" -B build -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA
+          cmake -S "Nockx.Base/C++" -B build -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA
           cmake --build build --config Release
           cmake --install build --config Release --prefix out
 
@@ -102,8 +104,8 @@ jobs:
         run: |
           for d in tmp/native-*; do
             rid=${d#tmp/native-}
-            mkdir -p runtimes/$rid/native
-            cp $d/* runtimes/$rid/native/
+            mkdir -p Nockx.Base/runtimes/$rid/native
+            cp $d/* Nockx.Base/runtimes/$rid/native/
           done
 
       - name: Fetch OpenSSL license
@@ -115,12 +117,19 @@ jobs:
             echo "-----"
             echo
             curl -fsSL https://raw.githubusercontent.com/openssl/openssl/openssl-3.0/LICENSE.txt
-          } > OPENSSL-LICENSE.txt
+          } > Nockx.Base/OPENSSL-LICENSE.txt
 
       - name: Pack
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          dotnet pack -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          run: |
+            VERSION=$(echo "$COMMIT_MSG" | grep -oP '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v\K[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -n1 || true)
+            if [ -z "$VERSION" ]; then
+              VERSION="0.0.0-test.${GITHUB_RUN_NUMBER}"
+            fi
+            echo "Packing version $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          dotnet pack Nockx.Base/Nockx.Base.csproj -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
 
       - uses: actions/upload-artifact@v4
         with:
