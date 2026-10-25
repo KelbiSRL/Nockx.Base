@@ -1,0 +1,94 @@
+name: test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: linux-x64
+            os: ubuntu-22.04
+          - rid: osx-x64
+            os: macos-15-intel
+          - rid: osx-arm64
+            os: macos-14
+    runs-on: ${{ matrix.os }}
+    env:
+      NATIVE_DIR: Nockx.Base/runtimes/${{ matrix.rid }}/native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl@3
+          echo "CMAKE_EXTRA=-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+
+      - name: Install OpenSSL (Windows, shared, via vcpkg)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          vcpkg install openssl:x64-windows
+          echo "CMAKE_EXTRA=-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows" >> $GITHUB_ENV
+
+      - name: Build native library
+        shell: bash
+        run: |
+          cmake -S "Nockx.Base/C++" -B build -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA
+          cmake --build build --config Release
+          cmake --install build --config Release --prefix "$NATIVE_DIR"
+
+      - name: Bundle OpenSSL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cp -L /usr/lib/x86_64-linux-gnu/libssl.so.3 "$NATIVE_DIR/"
+          cp -L /usr/lib/x86_64-linux-gnu/libcrypto.so.3 "$NATIVE_DIR/"
+
+      - name: Bundle OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libssl-3-x64.dll" "$NATIVE_DIR/"
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libcrypto-3-x64.dll" "$NATIVE_DIR/"
+
+      - name: Bundle OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          P=$(brew --prefix openssl@3)/lib
+          cp -L $P/libssl.3.dylib $P/libcrypto.3.dylib "$NATIVE_DIR/"
+          cd "$NATIVE_DIR"
+          chmod u+w *.dylib
+          install_name_tool -id @rpath/libcrypto.3.dylib libcrypto.3.dylib
+          install_name_tool -id @rpath/libssl.3.dylib libssl.3.dylib
+          for f in libssl.3.dylib libnockx-base.dylib; do
+            for dep in $(otool -L $f | awk '/libcrypto.3.dylib|libssl.3.dylib/ {print $1}'); do
+              install_name_tool -change "$dep" "@rpath/$(basename $dep)" $f
+            done
+          done
+          codesign --force -s - *.dylib
+
+      - name: Test
+        run: dotnet test -c Release -p:BuildNative=false --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.rid }}
+          path: "**/TestResults/*.trx"
