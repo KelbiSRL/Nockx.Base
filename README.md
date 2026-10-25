@@ -1,5 +1,5 @@
 # Base for Nockx™
-<img src="nockx-logo.png" width="400px" style="float: right;" alt="nockx bear logo"/>
+<img src="nockx-logo.png" width="400px" align="right" style="float: right;" alt="nockx bear logo"/>
 
 This library contains all the cryptographic operations for [Nockx™](https://nockx.com).<br/>
 The types of cryptography implemented are RSA, ML-KEM, ML-DSA and AES-GCM.
