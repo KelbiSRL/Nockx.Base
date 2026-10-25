@@ -1,6 +1,7 @@
 #include "rsa_crypto.h"
 
 #include "aes_crypto.h"
+#include "library.h"
 
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -10,21 +11,21 @@ unsigned char *encrypt_aes_key_with_rsa(const unsigned char *public_rsa_key, con
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_rsa_key, key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
 
 	if (EVP_PKEY_encrypt_init(ctx) <= 0 || EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0 || EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <= 0) {
 		fprintf(stderr, "Failed to initialize encryption:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -33,7 +34,7 @@ unsigned char *encrypt_aes_key_with_rsa(const unsigned char *public_rsa_key, con
 	size_t out_len;
 	if (EVP_PKEY_encrypt(ctx, nullptr, &out_len, aes_key->key.data, aes_key->key.len) <= 0) {
 		fprintf(stderr, "Failed to encrypt (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -49,7 +50,7 @@ unsigned char *encrypt_aes_key_with_rsa(const unsigned char *public_rsa_key, con
 
 	if (EVP_PKEY_encrypt(ctx, ciphertext, &out_len, aes_key->key.data, aes_key->key.len) <= 0) {
 		fprintf(stderr, "Failed to encrypt:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
@@ -86,21 +87,21 @@ AesKey *decrypt_aes_key_with_rsa(const AsymmetricKey *private_rsa_key, const uns
 	EVP_PKEY *parsed_key = d2i_PrivateKey(nid, nullptr, &p, private_rsa_key->key.len);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
 
 	if (EVP_PKEY_decrypt_init(ctx) <= 0 || EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0 || EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <= 0) {
 		fprintf(stderr, "Failed to initialize decryption:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -109,7 +110,7 @@ AesKey *decrypt_aes_key_with_rsa(const AsymmetricKey *private_rsa_key, const uns
 	size_t out_len;
 	if (EVP_PKEY_decrypt(ctx, nullptr, &out_len, ciphertext, ciphertext_length) <= 0) {
 		fprintf(stderr, "Failed to decrypt (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -118,7 +119,7 @@ AesKey *decrypt_aes_key_with_rsa(const AsymmetricKey *private_rsa_key, const uns
 	auto raw_aes_key = static_cast<unsigned char *>(OPENSSL_secure_malloc(out_len));
 	if (!raw_aes_key) {
 		fprintf(stderr, "Error allocating raw_key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -126,7 +127,7 @@ AesKey *decrypt_aes_key_with_rsa(const AsymmetricKey *private_rsa_key, const uns
 
 	if (EVP_PKEY_decrypt(ctx, raw_aes_key, &out_len, ciphertext, ciphertext_length) <= 0) {
 		fprintf(stderr, "Failed to decrypt:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_secure_clear_free(raw_aes_key, out_len);
@@ -177,14 +178,14 @@ unsigned char *sign_with_rsa(const AsymmetricKey *private_rsa_key, const unsigne
 	EVP_PKEY *parsed_key = d2i_PrivateKey(nid, nullptr, &p, private_rsa_key->key.len);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
@@ -192,7 +193,7 @@ unsigned char *sign_with_rsa(const AsymmetricKey *private_rsa_key, const unsigne
 	EVP_PKEY_CTX *pkey_ctx = nullptr;
 	if (EVP_DigestSignInit(ctx, &pkey_ctx, EVP_sha256(), nullptr, parsed_key) <= 0 || EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING) <= 0 || EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
 		fprintf(stderr, "Failed to initialize signing:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -201,7 +202,7 @@ unsigned char *sign_with_rsa(const AsymmetricKey *private_rsa_key, const unsigne
 	size_t sig_size;
 	if (EVP_DigestSign(ctx, nullptr, &sig_size, data, data_size) <= 0) {
 		fprintf(stderr, "Failed to sign (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -210,7 +211,7 @@ unsigned char *sign_with_rsa(const AsymmetricKey *private_rsa_key, const unsigne
 	auto signature = static_cast<unsigned char *>(OPENSSL_malloc(sig_size));
 	if (!signature) {
 		fprintf(stderr, "Error allocating signature:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -218,7 +219,7 @@ unsigned char *sign_with_rsa(const AsymmetricKey *private_rsa_key, const unsigne
 
 	if (EVP_DigestSign(ctx, signature, &sig_size, data, data_size) <= 0) {
 		fprintf(stderr, "Failed to sign:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(signature);
@@ -237,14 +238,14 @@ int verify_with_rsa(const unsigned char *public_rsa_key, const int key_size, con
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_rsa_key, key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return -1;
 	}
@@ -252,7 +253,7 @@ int verify_with_rsa(const unsigned char *public_rsa_key, const int key_size, con
 	EVP_PKEY_CTX *pkey_ctx = nullptr;
 	if (EVP_DigestVerifyInit(ctx, &pkey_ctx, EVP_sha256(), nullptr, parsed_key) <= 0 || EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PSS_PADDING) <= 0 || EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_ctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
 		fprintf(stderr, "Failed to initialize verification:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return -1;
@@ -265,7 +266,7 @@ int verify_with_rsa(const unsigned char *public_rsa_key, const int key_size, con
 
 	if (result < 0) {
 		fprintf(stderr, "Error during verification:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 

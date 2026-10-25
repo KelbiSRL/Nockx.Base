@@ -1,6 +1,7 @@
 #include "kem_crypto.h"
 
 #include "aes_crypto.h"
+#include "library.h"
 
 #include <vector>
 #include <openssl/evp.h>
@@ -14,21 +15,21 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
 
 	if (EVP_PKEY_encapsulate_init(ctx, nullptr) <= 0) {
 		fprintf(stderr, "Failed to initialize encapsulation:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -37,7 +38,7 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 	size_t ct_length, ss_length;
 	if (EVP_PKEY_encapsulate(ctx, nullptr, &ct_length, nullptr, &ss_length) <= 0) {
 		fprintf(stderr, "Failed to encapsulate (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -46,7 +47,7 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(ct_length));
 	if (!ciphertext) {
 		fprintf(stderr, "Error allocating ciphertext:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -55,7 +56,7 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 	auto shared_secret = static_cast<unsigned char *>(OPENSSL_secure_malloc(ss_length));
 	if (!shared_secret) {
 		fprintf(stderr, "Error allocating shared_secret:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
@@ -64,7 +65,7 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 
 	if (EVP_PKEY_encapsulate(ctx, ciphertext, &ct_length, shared_secret, &ss_length) <= 0) {
 		fprintf(stderr, "Failed to encapsulate:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(ciphertext);
@@ -161,21 +162,21 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(parsed_key, nullptr);
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
 
 	if (EVP_PKEY_decapsulate_init(ctx, nullptr) <= 0) {
 		fprintf(stderr, "Failed to initialize decapsulation:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -189,7 +190,7 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 	std::vector true_ciphertext(ciphertext + 8 + encrypted_aes_key_len + IV_LEN, ciphertext + ciphertext_len);
 	if (EVP_PKEY_decapsulate(ctx, nullptr, &ss_length, true_ciphertext.data(), true_ciphertext.size()) <= 0) {
 		fprintf(stderr, "Failed to decapsulate (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -198,7 +199,7 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 	auto shared_secret = static_cast<unsigned char *>(OPENSSL_secure_malloc(ss_length));
 	if (!shared_secret) {
 		fprintf(stderr, "Error allocating shared_secret:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -206,7 +207,7 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 
 	if (EVP_PKEY_decapsulate(ctx, shared_secret, &ss_length, true_ciphertext.data(), true_ciphertext.size()) <= 0) {
 		fprintf(stderr, "Failed to decapsulate:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_secure_clear_free(shared_secret, ss_length);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
@@ -221,7 +222,7 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 		shared_secret_aes_key = new AesKey(shared_secret);
 	} catch (...) {
 		fprintf(stderr, "Failed to create AesKey shared_secret_aes_key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_secure_clear_free(shared_secret, ss_length);
 		EVP_PKEY_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);

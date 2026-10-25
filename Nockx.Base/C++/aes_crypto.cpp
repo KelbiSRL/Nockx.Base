@@ -1,5 +1,7 @@
 #include "aes_crypto.h"
 
+#include "library.h"
+
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
@@ -26,7 +28,7 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -40,19 +42,19 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 
 	if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
 		fprintf(stderr, "Failed to set encryption type:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -60,20 +62,20 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 	int len = 0;
 	if (EVP_EncryptUpdate(ctx, nullptr, &len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to authenticate extra data:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	auto ciphertext = static_cast<unsigned char *>(OPENSSL_malloc(plaintext_len + TAG_LEN));
 	if (!ciphertext) {
 		fprintf(stderr, "Failed to allocate ciphertext:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, static_cast<int>(plaintext_len)) != 1) {
 		fprintf(stderr, "Failed to encrypt:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_free(ciphertext);
 		return nullptr;
 	}
@@ -81,7 +83,7 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 	int total = len;
 	if (EVP_EncryptFinal_ex(ctx, ciphertext + total, &len) != 1) {
 		fprintf(stderr, "Failed to finalize encryption:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_free(ciphertext);
 		return nullptr;
 	}
@@ -90,7 +92,7 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 	std::vector<uint8_t> tag(TAG_LEN);
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN, tag.data()) != 1) {
 		fprintf(stderr, "Failed to get tag:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_free(ciphertext);
 		return nullptr;
 	}
@@ -111,7 +113,7 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -125,26 +127,26 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 
 	if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
 		fprintf(stderr, "Failed to set decryption type:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_DecryptInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv) != 1) {
 		fprintf(stderr, "Failed to set AES key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	int len = 0;
 	if (EVP_DecryptUpdate(ctx, nullptr, &len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to authenticate extra data:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -153,13 +155,13 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 	auto plaintext = static_cast<unsigned char *>(OPENSSL_malloc(actual_ciphertext_len));
 	if (!plaintext) {
 		fprintf(stderr, "Failed to allocate plaintext:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, static_cast<int>(actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to decrypt:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_cleanse(plaintext, len);
 		OPENSSL_free(plaintext);
 		return nullptr;
@@ -168,7 +170,7 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 	const int total = len;
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, const_cast<uint8_t *>(ciphertext + actual_ciphertext_len)) != 1) {
 		fprintf(stderr, "Failed to set tag:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_cleanse(plaintext, len);
 		OPENSSL_free(plaintext);
 		return nullptr;
@@ -176,7 +178,7 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 
 	if (EVP_DecryptFinal_ex(ctx, plaintext + total, &len) <= 0) {
 		fprintf(stderr, "Authentication failed. Message is corrupt or tampered:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		OPENSSL_cleanse(plaintext, actual_ciphertext_len);  // zero out any partial plaintext
 		OPENSSL_free(plaintext);
 		return nullptr;
@@ -191,27 +193,27 @@ EVP_CIPHER_CTX *create_gcm_context_for_stream(const uint8_t for_encryption, cons
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	if (EVP_CipherInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr, for_encryption) != 1) {
 		fprintf(stderr, "Failed to set encryption type:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_CIPHER_CTX_free(ctx);
 		return nullptr;
 	}
 
 	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, nullptr) != 1) {
 		fprintf(stderr, "Failed to set IV length:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_CIPHER_CTX_free(ctx);
 		return nullptr;
 	}
 
 	if (EVP_CipherInit_ex(ctx, nullptr, nullptr, aes_key->key.data, iv, for_encryption) != 1) {
 		fprintf(stderr, "Failed to initialize context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_CIPHER_CTX_free(ctx);
 		return nullptr;
 	}
@@ -219,7 +221,7 @@ EVP_CIPHER_CTX *create_gcm_context_for_stream(const uint8_t for_encryption, cons
 	int out_len = 0;
 	if (extra_auth_data && extra_auth_data_len > 0 && EVP_CipherUpdate(ctx, nullptr, &out_len, extra_auth_data, static_cast<int>(extra_auth_data_len)) != 1) {
 		fprintf(stderr, "Failed to set additional authentication data:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_CIPHER_CTX_free(ctx);
 		return nullptr;
 	}
@@ -236,7 +238,7 @@ int gcm_stream_update(EVP_CIPHER_CTX *ctx, const uint8_t *in, const int in_len, 
 	int out_len = 0;
 	if (EVP_CipherUpdate(ctx, out, &out_len, in, in_len) != 1) {
 		fprintf(stderr, "Failed to update stream:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 
@@ -254,7 +256,7 @@ int8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, const uint8_t for_encryption, uint8
 	if (!for_encryption) {
 		if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN, tag) != 1) {
 			fprintf(stderr, "Failed to verify tag:\n");
-			ERR_print_errors_fp(stderr);
+			print_openssl_errors();
 			return -1;
 		}
 
@@ -263,7 +265,7 @@ int8_t gcm_stream_final(EVP_CIPHER_CTX *ctx, const uint8_t for_encryption, uint8
 
 	if (EVP_CipherFinal_ex(ctx, dummy, &out_len) != 1) {
 		fprintf(stderr, "Failed to generate tag:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 

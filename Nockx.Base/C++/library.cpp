@@ -26,6 +26,15 @@ namespace {
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 #endif
+
+	int print_err_cb(const char *str, size_t len, void *) {
+		fwrite(str, 1, len, stderr);
+		return 1;
+	}
+}
+
+void print_openssl_errors() {
+	ERR_print_errors_cb(print_err_cb, nullptr);
 }
 
 void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key) {
@@ -69,25 +78,29 @@ unsigned char generate_key(const char *key_type) {
 
 	if (!key) {
 		fprintf(stderr, "Error generating key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return 0;
 	}
 
 	std::ranges::transform(key_type_str, key_type_str.begin(), tolower);
-	FILE *file = fopen((key_type_str + std::string("_private_key.pem")).c_str(), "w");
-	if (!file) {
-		perror("fopen");
+	const std::string path = key_type_str + std::string("_private_key.pem");
+
+	BIO *bio = BIO_new_file(path.c_str(), "w");
+	if (!bio) {
+		fprintf(stderr, "Error opening %s:\n", path.c_str());
+		EVP_PKEY_free(key);
 		return 0;
 	}
 
-	if (!PEM_write_PrivateKey(file, key, nullptr, nullptr, 0, nullptr, nullptr)) {
+	if (!PEM_write_bio_PrivateKey(bio, key, nullptr, nullptr, 0, nullptr, nullptr)) {
 		fprintf(stderr, "Error writing private key:\n");
-		ERR_print_errors_fp(stderr);
-		fclose(file);
+		print_openssl_errors();
+		BIO_free_all(bio);
+		EVP_PKEY_free(key);
 		return 0;
 	}
 
-	fclose(file);
+	BIO_free_all(bio);
 	EVP_PKEY_free(key);
 
 	return 1;
@@ -99,9 +112,9 @@ unsigned char generate_combined_nockx_key(const char *file_name) {
 
 	const std::vector key_types{"RSA", "ML-KEM-768", "ML-DSA-65"};
 
-	FILE *file = fopen(file_name, "a+");
-	if (!file) {
-		perror("fopen");
+	BIO *bio = BIO_new_file(file_name, "a+");
+	if (!bio) {
+		fprintf(stderr, "Error opening %s:\n", file_name);
 		return 0;
 	}
 
@@ -110,21 +123,21 @@ unsigned char generate_combined_nockx_key(const char *file_name) {
 
 		if (!key) {
 			fprintf(stderr, "Error generating key:\n");
-			ERR_print_errors_fp(stderr);
+			print_openssl_errors();
 			return 0;
 		}
 
-		if (!PEM_write_PrivateKey(file, key, nullptr, nullptr, 0, nullptr, nullptr)) {
+		if (!PEM_write_bio_PrivateKey(bio, key, nullptr, nullptr, 0, nullptr, nullptr)) {
 			fprintf(stderr, "Error writing private key:\n");
-			ERR_print_errors_fp(stderr);
-			fclose(file);
+			print_openssl_errors();
+			BIO_free_all(bio);
 			return 0;
 		}
 
 		EVP_PKEY_free(key);
 	}
 
-	fclose(file);
+	BIO_free_all(bio);
 
 	return 1;
 }
@@ -133,7 +146,7 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	BIO *bio = BIO_new_file(file_name, "r");
 	if (!bio) {
 		fprintf(stderr, "Error opening private key file:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -151,7 +164,7 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 
 	if (!key) {
 		fprintf(stderr, "Error reading key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -160,7 +173,7 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	EVP_PKEY_free(key);
 	if (der_len <= 0) {
 		fprintf(stderr, "Error converting private key to DER:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -170,7 +183,7 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 	} catch (...) {
 		asymmetric_key = nullptr;
 		fprintf(stderr, "Error constructing AsymmetricKey:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 	}
 
 	OPENSSL_clear_free(der_bytes, der_len);
@@ -193,7 +206,7 @@ unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_
 	EVP_PKEY *pkey = d2i_PrivateKey(nid, nullptr, &private_key_pointer, private_key->key.len);
 	if (!pkey) {
 		fprintf(stderr, "Error reconstructing private key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -202,7 +215,7 @@ unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_
 	if (*public_key_size <= 0) {
 		EVP_PKEY_free(pkey);
 		fprintf(stderr, "Error extracting public key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -215,14 +228,14 @@ char *get_key_type(const uint8_t *public_key, const unsigned int key_size) {
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_key, key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return strdup("invalid");
 	}
 
 	const char *type = EVP_PKEY_get0_type_name(parsed_key);
 	if (!type) {
 		fprintf(stderr, "Failed to get key type:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return strdup("unknown");
 	}
@@ -236,7 +249,7 @@ unsigned char *read_public_key_from_string(const char *input, const char *key_ty
 	BIO *bio = BIO_new_mem_buf(input, static_cast<int>(strlen(input)));
 	if (!bio) {
 		fprintf(stderr, "Error creating buffer for public key string:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
@@ -252,7 +265,7 @@ unsigned char *read_public_key_from_string(const char *input, const char *key_ty
 
 	if (!key) {
 		fprintf(stderr, "Error reading key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 

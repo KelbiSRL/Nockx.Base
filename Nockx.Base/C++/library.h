@@ -11,6 +11,8 @@
 
 struct AesKey;
 
+void print_openssl_errors();
+
 extern "C" {
 	EXPORT void destroy_asymmetric_key(const AsymmetricKey *asymmetric_key);
 

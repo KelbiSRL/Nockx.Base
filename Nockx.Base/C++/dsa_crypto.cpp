@@ -1,5 +1,7 @@
 #include "dsa_crypto.h"
 
+#include "library.h"
+
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
@@ -27,21 +29,21 @@ unsigned char *sign_with_ml_dsa(const AsymmetricKey *private_key, const unsigned
 
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return nullptr;
 	}
 
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
 	}
 
 	if (EVP_DigestSignInit(ctx, nullptr, nullptr, nullptr, parsed_key) <= 0) {
 		fprintf(stderr, "Failed to initialize signing:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -50,7 +52,7 @@ unsigned char *sign_with_ml_dsa(const AsymmetricKey *private_key, const unsigned
 	size_t sig_size;
 	if (EVP_DigestSign(ctx, nullptr, &sig_size, data, data_size) <= 0) {
 		fprintf(stderr, "Failed to sign (size check):\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -59,7 +61,7 @@ unsigned char *sign_with_ml_dsa(const AsymmetricKey *private_key, const unsigned
 	auto signature = static_cast<unsigned char *>(OPENSSL_malloc(sig_size));
 	if (!signature) {
 		fprintf(stderr, "Error allocating signature:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return nullptr;
@@ -67,7 +69,7 @@ unsigned char *sign_with_ml_dsa(const AsymmetricKey *private_key, const unsigned
 
 	if (EVP_DigestSign(ctx, signature, &sig_size, data, data_size) <= 0) {
 		fprintf(stderr, "Failed to sign:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		OPENSSL_free(signature);
@@ -86,21 +88,21 @@ int verify_with_ml_dsa(const unsigned char *public_key, const int key_size, cons
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_key, key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_PKEY_free(parsed_key);
 		return -1;
 	}
 
 	if (EVP_DigestVerifyInit(ctx, nullptr, nullptr, nullptr, parsed_key) <= 0) {
 		fprintf(stderr, "Failed to initialize verifying:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		EVP_MD_CTX_free(ctx);
 		EVP_PKEY_free(parsed_key);
 		return -1;
@@ -113,7 +115,7 @@ int verify_with_ml_dsa(const unsigned char *public_key, const int key_size, cons
 
 	if (result < 0) {
 		fprintf(stderr, "Error during verification:\n");
-		ERR_print_errors_fp(stderr);
+		print_openssl_errors();
 		return -1;
 	}
 
