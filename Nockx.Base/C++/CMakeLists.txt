@@ -15,6 +15,8 @@ add_library(nockx-base SHARED library.cpp
 target_link_libraries(nockx-base PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 set_property(TARGET nockx-base PROPERTY CXX_STANDARD 20)
 
+set_target_properties(nockx-base PROPERTIES PREFIX "lib")
+
 if(APPLE)
     set_target_properties(nockx-base PROPERTIES
             BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH "@loader_path")
