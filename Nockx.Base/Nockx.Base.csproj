@@ -4,22 +4,24 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>0.5.0</Version>
+        <Version>1.0.0</Version>
         <Authors>Kelbi S.R.L.</Authors>
         <Description>The underlying cryptography system for Nockx™</Description>
         <RepositoryUrl>https://gitlab.com/KelbiSRL/Nockx-Base</RepositoryUrl>
         <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
-        <PackageProjectUrl>https://gitlab.com/KelbiSRL/Nockx-Base</PackageProjectUrl>
+        <PackageProjectUrl>https://nockx.com</PackageProjectUrl>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Title>Nockx.Base</Title>
         <Copyright>Copyright (c) 2026 Kelbi S.R.L.</Copyright>
         <PackageIcon>nockx-logo.png</PackageIcon>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="" />
+        <None Include="..\LICENSE" Pack="true" PackagePath="" />
         <None Include="..\nockx-logo.png" Pack="true" PackagePath="" />
         <None Include="OPENSSL-LICENSE.txt" Pack="true" PackagePath="" Condition="Exists('OPENSSL-LICENSE.txt')" />
         <None Include="runtimes/**" Pack="true" PackagePath="runtimes" CopyToOutputDirectory="PreserveNewest" />
