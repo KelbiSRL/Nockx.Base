@@ -2,12 +2,10 @@ name: build
 
 on:
   push:
-    branches: [master]
-  workflow_dispatch: 
+    tags: ['v*']
     
 jobs:
   native:
-    if: "github.event_name == 'workflow_dispatch' || contains(github.event.head_commit, '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v')"
     strategy:
       fail-fast: false
       matrix:
@@ -120,30 +118,13 @@ jobs:
           } > Nockx.Base/OPENSSL-LICENSE.txt
 
       - name: Pack
-        env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
-        run: |
-          VERSION=$(echo "$COMMIT_MSG" | grep -oP '###GITLAB-BOT-AUTO-COMMIT-RELEASE###: v\K[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -n1 || true)
-          if [ -z "$VERSION" ]; then
-            VERSION="0.0.0-test.${GITHUB_RUN_NUMBER}"
-          fi
-          echo "Packing version $VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          dotnet pack Nockx.Base/Nockx.Base.csproj -c Release -p:BuildNative=false -p:Version=$VERSION -o nupkg
+        run: dotnet pack Nockx.Base/Nockx.Base.csproj -c Release -p:BuildNative=false -p:Version=${GITHUB_REF_NAME#v} -o nupkg
 
-      - uses: actions/upload-artifact@v4
+      - name: NuGet login (OIDC -> temp API key)
+        id: login
+        uses: NuGet/login@v1
         with:
-          name: nupkg
-          path: nupkg/*.nupkg
+          user: ${{ secrets.NUGET_USER }}
 
-#      - name: Pack
-#        run: dotnet pack -c Release -p:BuildNative=false -p:Version=${GITHUB_REF_NAME#v} -o nupkg
-
-#      - name: NuGet login (OIDC -> temp API key)
-#        id: login
-#        uses: NuGet/login@v1
-#        with:
-#          user: ${{ secrets.NUGET_USER }}
-
-#      - name: Push
-#        run: dotnet nuget push "nupkg/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Push
+        run: dotnet nuget push "nupkg/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

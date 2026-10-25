@@ -1,5 +1,15 @@
 mirror-to-github:
   stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH
   script:
-    - git remote add github https://${GITHUB_TOKEN}@github.com/KelbiSRL/Nockx.Base
+    - git remote add github https://${GITHUB_TOKEN}@github.com/KelbiSRL/Nockx.Base.git
     - git push github $CI_COMMIT_SHA:refs/heads/$CI_COMMIT_REF_NAME --force
+
+mirror-tag-to-github:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - git remote add github https://${GITHUB_TOKEN}@github.com/KelbiSRL/Nockx.Base.git
+    - git push github refs/tags/$CI_COMMIT_TAG:refs/tags/$CI_COMMIT_TAG --force
