@@ -18,9 +18,14 @@ public class GenerateReadTests {
 
 	[Fact]
 	public void GenerateReadSuccess() {
-		MlDsaKey.GenerateKeyFile();
-		Assert.False(MlDsaKey.ReadKeyFromFile($"{Cryptography.MlDsa65.ToLower()}_private_key.pem").IsInvalid);
+		string fileName = $"{Cryptography.MlDsa65.ToLower()}_private_key.pem";
 		
-		File.Delete($"{Cryptography.MlDsa65.ToLower()}_private_key.pem");
+		try {
+			MlDsaKey.GenerateKeyFile();
+			Assert.False(MlDsaKey.ReadKeyFromFile(fileName).IsInvalid);
+		} finally {
+			if (File.Exists(fileName))
+				File.Delete(fileName);
+		}
 	}
 }

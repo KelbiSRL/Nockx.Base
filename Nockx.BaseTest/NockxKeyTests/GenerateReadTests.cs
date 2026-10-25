@@ -17,10 +17,13 @@ public class GenerateReadTests {
 
 	[Fact]
 	public void GenerateReadSuccess() {
-		NockxKey.GenerateCombinedKeyFile();
-		using NockxKey nockxKey = NockxKey.ReadKeyFromFile(); 
-		Assert.False(nockxKey.IsInvalid);
-		
-		File.Delete("private_key.pem");
+		try {
+			NockxKey.GenerateCombinedKeyFile();
+			using NockxKey nockxKey = NockxKey.ReadKeyFromFile();
+			Assert.False(nockxKey.IsInvalid);
+		} finally {
+			if (File.Exists("private_key.pem"))
+				File.Delete("private_key.pem");
+		}
 	}
 }

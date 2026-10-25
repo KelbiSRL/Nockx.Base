@@ -18,9 +18,14 @@ public class GenerateReadTests {
 
 	[Fact]
 	public void GenerateReadSuccess() {
-		RsaKey.GenerateKeyFile();
-		Assert.False(RsaKey.ReadKeyFromFile($"{Cryptography.Rsa.ToLower()}_private_key.pem").IsInvalid);
+		string fileName = $"{Cryptography.Rsa.ToLower()}_private_key.pem";
 		
-		File.Delete($"{Cryptography.Rsa.ToLower()}_private_key.pem");
+		try {
+			RsaKey.GenerateKeyFile();
+			Assert.False(RsaKey.ReadKeyFromFile(fileName).IsInvalid);
+		} finally {
+			if (File.Exists(fileName))
+				File.Delete(fileName);
+		}
 	}
 }
