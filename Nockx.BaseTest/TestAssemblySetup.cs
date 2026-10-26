@@ -7,5 +7,5 @@ namespace Nockx.BaseTest;
 
 public static class TestAssemblySetup {
 	[ModuleInitializer]
-	public static void Initialize() => Cryptography.InitSecureHeap();
+	public static void Initialize() => Cryptography.InitSecureHeap(size: 1 << 17);
 }

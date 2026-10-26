@@ -84,7 +84,7 @@ jobs:
           codesign --force -s - *.dylib
 
       - name: Test
-        run: dotnet test -c Release -p:BuildNative=false --logger "trx;LogFileName=results.trx"
+        run: dotnet test -c Release -p:BuildNative=false --logger "trx;LogFileName=results.trx" --logger "console;verbosity=detailed"
 
       - name: Upload test results
         if: always()
