@@ -17,8 +17,19 @@
 	<ItemGroup>
 		<Using Include="Xunit"/>
 	</ItemGroup>
+	
 	<ItemGroup>
 	  <ProjectReference Include="..\Nockx.Base\Nockx.Base.csproj" />
 	</ItemGroup>
 
+	<Target Name="CopyMyFolderFiles" AfterTargets="Build">
+		<ItemGroup>
+			<MyFiles Include="$(ProjectDir)testkeys\**\*.*" />
+		</ItemGroup>
+
+		<Copy
+				SourceFiles="@(MyFiles)"
+				DestinationFiles="@(MyFiles->'$(OutDir)%(Filename)%(Extension)')" />
+	</Target>
+	
 </Project>
