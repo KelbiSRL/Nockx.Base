@@ -22,7 +22,7 @@ jobs:
             os: macos-14
     runs-on: ${{ matrix.os }}
     env:
-      NATIVE_DIR: Nockx.Base/runtimes/${{ matrix.rid }}/native
+      OUTPUT_DIR: Nockx.Base/bin/Release/net10.0
     steps:
       - uses: actions/checkout@v4
 
@@ -52,27 +52,27 @@ jobs:
         run: |
           cmake -S "Nockx.Base/C++" -B build -DCMAKE_BUILD_TYPE=Release $CMAKE_EXTRA
           cmake --build build --config Release
-          cmake --install build --config Release --prefix "$NATIVE_DIR"
+          cmake --install build --config Release --prefix "$OUTPUT_DIR"
 
       - name: Bundle OpenSSL (Linux)
         if: runner.os == 'Linux'
         run: |
-          cp -L /usr/lib/x86_64-linux-gnu/libssl.so.3 "$NATIVE_DIR/"
-          cp -L /usr/lib/x86_64-linux-gnu/libcrypto.so.3 "$NATIVE_DIR/"
+          cp -L /usr/lib/x86_64-linux-gnu/libssl.so.3 "$OUTPUT_DIR/"
+          cp -L /usr/lib/x86_64-linux-gnu/libcrypto.so.3 "$OUTPUT_DIR/"
 
       - name: Bundle OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libssl-3-x64.dll" "$NATIVE_DIR/"
-          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libcrypto-3-x64.dll" "$NATIVE_DIR/"
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libssl-3-x64.dll" "$OUTPUT_DIR/"
+          cp "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/libcrypto-3-x64.dll" "$OUTPUT_DIR/"
 
       - name: Bundle OpenSSL (macOS)
         if: runner.os == 'macOS'
         run: |
           P=$(brew --prefix openssl@3)/lib
-          cp -L $P/libssl.3.dylib $P/libcrypto.3.dylib "$NATIVE_DIR/"
-          cd "$NATIVE_DIR"
+          cp -L $P/libssl.3.dylib $P/libcrypto.3.dylib "$OUTPUT_DIR/"
+          cd "$OUTPUT_DIR"
           chmod u+w *.dylib
           install_name_tool -id @rpath/libcrypto.3.dylib libcrypto.3.dylib
           install_name_tool -id @rpath/libssl.3.dylib libssl.3.dylib
