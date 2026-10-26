@@ -5,8 +5,11 @@ namespace Nockx.BaseTest.MlKemKeyTests;
 
 public class GenerateReadTests {
 	[Fact]
-	public void ReadSuccess() => Assert.False(MlKemKey.ReadKeyFromFile("mlkemtestkey.pem").IsInvalid);
-	
+	public void ReadSuccess() {
+		using MlKemKey key = MlKemKey.ReadKeyFromFile("mlkemtestkey.pem"); 
+		Assert.False(key.IsInvalid);
+	}
+
 	[Fact]
 	public void ReadWrongTypeFail() => Assert.Throws<InvalidOperationException>(() => MlKemKey.ReadKeyFromFile("rsatestkey.pem"));
 	
@@ -22,7 +25,8 @@ public class GenerateReadTests {
 
 		try {
 			MlKemKey.GenerateKeyFile();
-			Assert.False(MlKemKey.ReadKeyFromFile(fileName).IsInvalid);
+			using MlKemKey key = MlKemKey.ReadKeyFromFile(fileName);
+			Assert.False(key.IsInvalid);
 		} finally {
 			if (File.Exists(fileName))
 				File.Delete(fileName);

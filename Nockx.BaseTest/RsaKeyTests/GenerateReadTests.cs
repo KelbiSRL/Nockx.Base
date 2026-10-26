@@ -5,8 +5,11 @@ namespace Nockx.BaseTest.RsaKeyTests;
 
 public class GenerateReadTests {
 	[Fact]
-	public void ReadSuccess() => Assert.False(RsaKey.ReadKeyFromFile("rsatestkey.pem").IsInvalid);
-	
+	public void ReadSuccess() {
+		using RsaKey key = RsaKey.ReadKeyFromFile("rsatestkey.pem");
+		Assert.False(key.IsInvalid);
+	}
+
 	[Fact]
 	public void ReadWrongTypeFail() => Assert.Throws<InvalidOperationException>(() => RsaKey.ReadKeyFromFile("mlkemtestkey.pem"));
 	
@@ -22,7 +25,8 @@ public class GenerateReadTests {
 		
 		try {
 			RsaKey.GenerateKeyFile();
-			Assert.False(RsaKey.ReadKeyFromFile(fileName).IsInvalid);
+			using RsaKey key = RsaKey.ReadKeyFromFile(fileName);
+			Assert.False(key.IsInvalid);
 		} finally {
 			if (File.Exists(fileName))
 				File.Delete(fileName);

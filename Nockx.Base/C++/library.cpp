@@ -276,3 +276,7 @@ unsigned char *read_public_key_from_string(const char *input, const char *key_ty
 
 	return public_key;
 }
+
+size_t secure_heap_bytes_used() {
+	return CRYPTO_secure_used();
+}

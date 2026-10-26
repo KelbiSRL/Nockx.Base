@@ -5,14 +5,17 @@ namespace Nockx.BaseTest.MlDsaKeyTests;
 
 public class GenerateReadTests {
 	[Fact]
-	public void ReadSuccess() => Assert.False(MlDsaKey.ReadKeyFromFile("mldsatestkey.pem").IsInvalid);
-	
+	public void ReadSuccess() {
+		using MlDsaKey key = MlDsaKey.ReadKeyFromFile("mldsatestkey.pem");
+		Assert.False(key.IsInvalid);
+	}
+
 	[Fact]
 	public void ReadWrongTypeFail() => Assert.Throws<InvalidOperationException>(() => MlDsaKey.ReadKeyFromFile("rsatestkey.pem"));
-	
+
 	[Fact]
 	public void ReadInvalidKeyFail() => Assert.Throws<InvalidOperationException>(() => MlDsaKey.ReadKeyFromFile("invalidtestkey.pem"));
-	
+
 	[Fact]
 	public void ReadFileNotFoundFail() => Assert.Throws<FileNotFoundException>(() => MlDsaKey.ReadKeyFromFile("nonexistentkey.pem"));
 
@@ -22,7 +25,8 @@ public class GenerateReadTests {
 		
 		try {
 			MlDsaKey.GenerateKeyFile();
-			Assert.False(MlDsaKey.ReadKeyFromFile(fileName).IsInvalid);
+			using MlDsaKey key = MlDsaKey.ReadKeyFromFile(fileName);
+			Assert.False(key.IsInvalid);
 		} finally {
 			if (File.Exists(fileName))
 				File.Delete(fileName);

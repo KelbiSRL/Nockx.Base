@@ -15,6 +15,8 @@ public static class Cryptography {
 	public static bool DisableCoreDumping() => Init.disable_core_dumping() != 0;
 	
 	public static void InitSecureHeap(ulong size = 1 << 16, ulong minSize = 16) => Init.init_secure_heap(size, minSize);
+
+	public static ulong SecureHeapBytesUsed() => HelperFunctions.secure_heap_bytes_used();
 	
 	public static string Md5Hash(string input) => MD5.HashData(Encoding.Default.GetBytes(input)).Aggregate(new StringBuilder(), (sb, cur) => sb.Append(cur.ToString("x2"))).ToString();
 

@@ -36,4 +36,7 @@ internal static partial class HelperFunctions {
 	
 	[LibraryImport("libnockx-base", EntryPoint = "read_key_from_file")]
 	internal static partial MlDsaKey ReadMlDsaKeyFromFile([MarshalAs(UnmanagedType.LPStr)] string fileName, [MarshalAs(UnmanagedType.LPStr)] string keyType = MlDsaKey.KeyType);
+
+	[LibraryImport("libnockx-base")]
+	internal static partial ulong secure_heap_bytes_used();
 }

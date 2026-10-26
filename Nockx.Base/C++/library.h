@@ -35,6 +35,8 @@ extern "C" {
 	EXPORT char *get_key_type(const uint8_t *public_key, unsigned int key_size);
 
 	EXPORT unsigned char *read_public_key_from_string(const char *input, const char *key_type, int *public_key_size);
+
+	EXPORT size_t secure_heap_bytes_used();
 }
 
 #endif // NOCKX_BASE_CPP_LIBRARY_H
