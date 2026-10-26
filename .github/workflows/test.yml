@@ -22,7 +22,7 @@ jobs:
             os: macos-14
     runs-on: ${{ matrix.os }}
     env:
-      OUTPUT_DIR: Nockx.Base/bin/Release/net10.0
+      OUTPUT_DIR: Nockx.Base/testworkflowoutput
     steps:
       - uses: actions/checkout@v4
 
