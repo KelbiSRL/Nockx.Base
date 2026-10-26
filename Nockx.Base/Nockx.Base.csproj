@@ -33,9 +33,10 @@
         <NativeConfig Condition="'$(Configuration)' != 'Debug'">Release</NativeConfig>
         <NativeBuildDir>$(MSBuildProjectDirectory)/obj/native/$(NativeConfig)</NativeBuildDir>
         <NativeOutDir>$(NativeBuildDir)/out</NativeOutDir>
+        <BuildNative Condition="'$(BuildNative)' == ''">true</BuildNative>
     </PropertyGroup>
 
-    <Target Name="BuildNative" BeforeTargets="AssignTargetPaths">
+    <Target Name="BuildNative" BeforeTargets="AssignTargetPaths" Condition="'$(BuildNative)' == 'true'">
         <Exec Command="cmake -S &quot;$(NativeSrcDir)&quot; -B &quot;$(NativeBuildDir)&quot; -DCMAKE_BUILD_TYPE=$(NativeConfig) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=&quot;$(NativeOutDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=&quot;$(NativeOutDir)&quot; -DCMAKE_LIBRARY_OUTPUT_DIRECTORY_$(NativeConfig.ToUpper())=&quot;$(NativeOutDir)&quot; -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_$(NativeConfig.ToUpper())=&quot;$(NativeOutDir)&quot;" />
 
         <Exec Command="cmake --build &quot;$(NativeBuildDir)&quot; --config $(NativeConfig)" />
