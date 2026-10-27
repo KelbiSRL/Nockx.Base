@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(nockx-base)
 
 set(OPENSSL_USE_STATIC_LIBS OFF)
-find_package(OpenSSL 3.0 REQUIRED)
+find_package(OpenSSL 3.5 REQUIRED)
 
 add_library(nockx-base SHARED library.cpp
         aes_crypto.cpp
