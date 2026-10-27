@@ -13,7 +13,7 @@ jobs:
           - rid: win-x64
             os: windows-latest
           - rid: linux-x64
-            os: ubuntu-22.04
+            os: ubuntu-26.04
           - rid: osx-x64
             os: macos-15-intel
           - rid: osx-arm64
