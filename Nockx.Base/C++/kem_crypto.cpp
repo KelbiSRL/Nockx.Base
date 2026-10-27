@@ -184,7 +184,7 @@ unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key,
 
 	size_t encrypted_aes_key_len = 0;
 	for (int i = 0; i < 8; i++)
-		encrypted_aes_key_len |= ciphertext[i] << (i*8);
+		encrypted_aes_key_len |= static_cast<uint64_t>(ciphertext[i]) << (i*8);
 
 	size_t ss_length;
 	std::vector true_ciphertext(ciphertext + 8 + encrypted_aes_key_len + IV_LEN, ciphertext + ciphertext_len);
