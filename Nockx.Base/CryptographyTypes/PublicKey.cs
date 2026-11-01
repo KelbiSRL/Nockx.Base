@@ -19,5 +19,9 @@ public abstract class PublicKey {
 		RawKey = [..rawKey];
 	}
 
+	public static bool operator ==(PublicKey? a, object? b) => a is null ? b is null : a.ToString() == b?.ToString(); // TODO: write tests for this
+
+	public static bool operator !=(PublicKey? a, object? b) => !(a == b);
+	
 	public override string ToString() => Convert.ToBase64String([..RawKey]);
 }
