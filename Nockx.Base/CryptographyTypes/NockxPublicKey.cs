@@ -46,9 +46,17 @@ public class NockxPublicKey {
 	
 	public bool Verify(CombinedSignature signature, byte[] data) => RsaPublicKey.Verify(signature.RsaSignature, data) && MlDsaPublicKey.Verify(signature.MlDsaSignature, data);
 
-	public static bool operator ==(NockxPublicKey? a, object? b) => a is null ? b is null : a.ToString() == b?.ToString(); // TODO: write tests for this
-
-	public static bool operator !=(NockxPublicKey? a, object? b) => !(a == b);
+	public static implicit operator NockxPublicKey(string keyString) => new (keyString);
 	
+	public static bool operator ==(NockxPublicKey? a, NockxPublicKey? b) => a?.Equals(b) ?? b is null;
+	
+	public static bool operator !=(NockxPublicKey? a, NockxPublicKey? b) => !(a == b);
+	
+	public bool Equals(NockxPublicKey? other) => other is not null && ToString() == other.ToString();
+
+	public override bool Equals(object? obj) => obj is NockxPublicKey key && Equals(key);
+
+	public override int GetHashCode() => ToString().GetHashCode();
+
 	public override string ToString() => $"{RsaPublicKey}:{MlKemPublicKey}:{MlDsaPublicKey}";
 }

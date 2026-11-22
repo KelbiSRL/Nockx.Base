@@ -6,6 +6,10 @@ public class MlKemPublicKey : PublicKey {
 	internal MlKemPublicKey(byte[] rawKey, byte? _) : base(rawKey, _) { }
 	
 	public MlKemPublicKey(byte[] rawKey) : base(rawKey) { }
+	
+	public MlKemPublicKey(string key) : base(Convert.FromBase64String(key)) { }
+	
+	public static implicit operator MlKemPublicKey(string keyString) => new (keyString);
 
 	public unsafe byte[] EncryptRsaEncryptedAesKey(byte[] rsaEncryptedAesKey) {
 		uint encryptedAesKeyLength;

@@ -19,6 +19,10 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <NoWarn>CS1591</NoWarn> <!--XML comments-->
+    </PropertyGroup>
+    
     <ItemGroup>
         <None Include="..\README.md" Pack="true" PackagePath="" />
         <None Include="..\LICENSE" Pack="true" PackagePath="" />

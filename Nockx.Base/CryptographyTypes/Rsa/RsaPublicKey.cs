@@ -9,6 +9,10 @@ public sealed class RsaPublicKey : PublicKey {
 
 	public RsaPublicKey(byte[] key) : base(key) { }
 	
+	public RsaPublicKey(string key) : base(Convert.FromBase64String(key)) { }
+	
+	public static implicit operator RsaPublicKey(string keyString) => new (keyString);
+	
 	public unsafe byte[] EncryptAesKey(AesKey aesKey) {
 		uint encryptedAesKeyLength;
 		IntPtr encryptedAesKeyPointer = RsaCryptography.encrypt_aes_key_with_rsa([..RawKey], (uint) RawKey.Length, aesKey, &encryptedAesKeyLength);

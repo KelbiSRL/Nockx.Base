@@ -7,6 +7,10 @@ public sealed class MlDsaPublicKey : PublicKey {
 	
 	public MlDsaPublicKey(byte[] rawKey) : base(rawKey) { }
 	
+	public MlDsaPublicKey(string key) : base(Convert.FromBase64String(key)) { }
+	
+	public static implicit operator MlDsaPublicKey(string keyString) => new (keyString);
+	
 	public bool Verify(byte[] signature, byte[] data) {
 		int result = MlDsaCryptography.verify_with_ml_dsa([..RawKey], RawKey.Length, data, (ulong) data.LongLength, signature, (uint) signature.Length);
 		if (result == -1)
