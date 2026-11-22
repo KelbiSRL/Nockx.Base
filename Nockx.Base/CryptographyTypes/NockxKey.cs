@@ -41,10 +41,15 @@ public class NockxKey : IDisposable {
 	public EncryptedKeyDataPair EncryptBytes(byte[] input, byte[]? additionalAuthenticationData = null) => Public.EncryptBytes(input, additionalAuthenticationData);
 	
 	public byte[] DecryptBytes(EncryptedKeyDataPair input, byte[]? additionalAuthenticationData = null) {
-		byte[] singlyEncryptedAesKey = MlKemKey.DecryptAesKey(input.EncryptedAesKey);
-		using AesKey aesKey = RsaKey.DecryptAesKey(singlyEncryptedAesKey);
-
+		using AesKey aesKey = DecryptAesKey(input.EncryptedAesKey);
 		return aesKey.Decrypt(input.EncryptedData, additionalAuthenticationData);
+	}
+	
+	public byte[] EncryptAesKey(AesKey aesKey) => Public.EncryptAesKey(aesKey);
+
+	public AesKey DecryptAesKey(byte[] doublyEncryptedAesKey) {
+		byte[] singlyEncryptedAesKey = MlKemKey.DecryptAesKey(doublyEncryptedAesKey);
+		return RsaKey.DecryptAesKey(singlyEncryptedAesKey);
 	}
 
 	public CombinedSignature Sign(byte[] data) => new () {

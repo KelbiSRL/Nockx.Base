@@ -31,13 +31,17 @@ public class NockxPublicKey {
 		using AesKey aesKey = AesKey.Generate();
 	
 		byte[] cipherBytes = aesKey.Encrypt(input, additionalAuthenticationData);
-		byte[] rsaEncryptedAesKey = RsaPublicKey.EncryptAesKey(aesKey);
-		byte[] doublyEncryptedAesKey = MlKemPublicKey.EncryptRsaEncryptedAesKey(rsaEncryptedAesKey);
+		byte[] doublyEncryptedAesKey = EncryptAesKey(aesKey);
 	
 		return new EncryptedKeyDataPair {
 			EncryptedAesKey = doublyEncryptedAesKey,
 			EncryptedData = cipherBytes
 		};
+	}
+
+	public byte[] EncryptAesKey(AesKey aesKey) {
+		byte[] rsaEncryptedAesKey = RsaPublicKey.EncryptAesKey(aesKey);
+		return MlKemPublicKey.EncryptRsaEncryptedAesKey(rsaEncryptedAesKey);
 	}
 	
 	public bool Verify(CombinedSignature signature, byte[] data) => RsaPublicKey.Verify(signature.RsaSignature, data) && MlDsaPublicKey.Verify(signature.MlDsaSignature, data);
