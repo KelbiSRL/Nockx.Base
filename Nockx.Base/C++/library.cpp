@@ -70,6 +70,11 @@ void free_openssl_pointer(void *ptr, const uint64_t size) {
 }
 
 unsigned char generate_key(const char *key_type) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return 0;
+	}
+
 	OpenSSL_add_all_algorithms();
 	ERR_load_crypto_strings();
 
@@ -107,6 +112,11 @@ unsigned char generate_key(const char *key_type) {
 }
 
 unsigned char generate_combined_nockx_key(const char *file_name) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return 0;
+	}
+
 	OpenSSL_add_all_algorithms();
 	ERR_load_crypto_strings();
 
@@ -143,6 +153,11 @@ unsigned char generate_combined_nockx_key(const char *file_name) {
 }
 
 AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	BIO *bio = BIO_new_file(file_name, "r");
 	if (!bio) {
 		fprintf(stderr, "Error opening private key file:\n");
@@ -191,6 +206,11 @@ AsymmetricKey *read_key_from_file(const char *file_name, const char *key_type) {
 }
 
 unsigned char *extract_public_key(const AsymmetricKey *private_key, int *public_key_size) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	if (!private_key) {
 		fprintf(stderr, "Key is null\n");
 		return nullptr;
@@ -254,7 +274,7 @@ unsigned char *read_public_key_from_string(const char *input, const char *key_ty
 	}
 
 	EVP_PKEY *key = nullptr;
-	EVP_PKEY *candidate = nullptr;
+	EVP_PKEY *candidate;
 	while ((candidate = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr)) != nullptr) {
 		if (strcmp(EVP_PKEY_get0_type_name(candidate), key_type) == 0) {
 			key = candidate;

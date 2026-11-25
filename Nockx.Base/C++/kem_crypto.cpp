@@ -12,6 +12,11 @@
 #define WRAPPED_KEY_LEN 60
 
 unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, const unsigned int kem_key_size, const unsigned char *rsa_encrypted_aes_key, const unsigned int rsa_encrypted_aes_key_length, unsigned int *wrapped_encrypted_aes_key_length) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	EVP_PKEY *parsed_key = d2i_PUBKEY(nullptr, &public_kem_key, kem_key_size);
 	if (!parsed_key) {
 		fprintf(stderr, "Failed to parse key:\n");
@@ -141,6 +146,11 @@ unsigned char *encrypt_aes_key_with_ml_kem(const unsigned char *public_kem_key, 
 }
 
 unsigned char *decrypt_aes_key_with_ml_kem(const AsymmetricKey *private_kem_key, const unsigned char *ciphertext, const unsigned int ciphertext_len, unsigned int *plaintext_len) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	if (!private_kem_key) {
 		fprintf(stderr, "Key is null\n");
 		return nullptr;

@@ -9,6 +9,11 @@
 #define TAG_LEN 16
 
 AesKey *create_aes_key() {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	try {
 		return new AesKey();
 	} catch (...) {
@@ -25,6 +30,11 @@ int generate_iv(uint8_t *iv) {
 }
 
 uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, size_t *ciphertext_len) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
@@ -105,6 +115,11 @@ uint8_t *encrypt_with_aes_gcm(const uint8_t *plaintext, const size_t plaintext_l
 }
 
 uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext_len, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len, size_t *plaintext_len) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	if (ciphertext_len < TAG_LEN) {
 		fprintf(stderr, "Ciphertext too short\n");
 		return nullptr;
@@ -190,6 +205,11 @@ uint8_t *decrypt_with_aes_gcm(const uint8_t *ciphertext, const size_t ciphertext
 }
 
 EVP_CIPHER_CTX *create_gcm_context_for_stream(const uint8_t for_encryption, const AesKey *aes_key, const uint8_t *iv, const uint8_t *extra_auth_data, const size_t extra_auth_data_len) {
+	if (!CRYPTO_secure_malloc_initialized()) {
+		fprintf(stderr, "Secure heap is not initialized\n");
+		return nullptr;
+	}
+
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
 		fprintf(stderr, "Failed to create context:\n");
