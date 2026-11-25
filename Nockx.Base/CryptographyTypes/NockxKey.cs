@@ -52,12 +52,12 @@ public class NockxKey : IDisposable {
 		return RsaKey.DecryptAesKey(singlyEncryptedAesKey);
 	}
 
-	public CombinedSignature Sign(byte[] data) => new () {
-		RsaSignature = RsaKey.Sign(data),
-		MlDsaSignature = MlDsaKey.Sign(data)
+	public CombinedSignature Sign(byte[] data, AesKey[]? aesKeys = null) => new () {
+		RsaSignature = RsaKey.Sign(data, aesKeys),
+		MlDsaSignature = MlDsaKey.Sign(data, aesKeys)
 	};
 	
-	public bool Verify(CombinedSignature signature, byte[] data) => Public.Verify(signature, data);
+	public bool Verify(CombinedSignature signature, byte[] data, AesKey[]? aesKeys = null) => Public.Verify(signature, data, aesKeys);
 	
 	public void Dispose() {
 		GC.SuppressFinalize(this);

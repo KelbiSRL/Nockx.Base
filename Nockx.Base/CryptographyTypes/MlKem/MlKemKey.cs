@@ -7,9 +7,8 @@ public sealed class MlKemKey : AsymmetricKey {
 	
 	public new MlKemPublicKey Public => (MlKemPublicKey) base.Public;
 	
-	public MlKemKey() {
-		
-	}
+	/// <inheritdoc/>
+	public MlKemKey() { }
 	
 	public static void GenerateKeyFile() {
 		if (HelperFunctions.generate_key(KeyType) == 0)

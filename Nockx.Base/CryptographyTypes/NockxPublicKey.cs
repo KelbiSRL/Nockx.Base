@@ -44,7 +44,7 @@ public class NockxPublicKey {
 		return MlKemPublicKey.EncryptRsaEncryptedAesKey(rsaEncryptedAesKey);
 	}
 	
-	public bool Verify(CombinedSignature signature, byte[] data) => RsaPublicKey.Verify(signature.RsaSignature, data) && MlDsaPublicKey.Verify(signature.MlDsaSignature, data);
+	public bool Verify(CombinedSignature signature, byte[] data, AesKey[]? aesKeys = null) => RsaPublicKey.Verify(signature.RsaSignature, data, aesKeys) && MlDsaPublicKey.Verify(signature.MlDsaSignature, data, aesKeys);
 
 	public static implicit operator NockxPublicKey(string keyString) => new (keyString);
 	

@@ -1,3 +1,6 @@
+using Nockx.Base.CryptographyTypes.Aes;
+using Nockx.Base.Util;
+
 namespace Nockx.Base.CryptographyTypes.MlDsa;
 
 public sealed class MlDsaPublicKey : PublicKey {
@@ -11,8 +14,11 @@ public sealed class MlDsaPublicKey : PublicKey {
 	
 	public static implicit operator MlDsaPublicKey(string keyString) => new (keyString);
 	
-	public bool Verify(byte[] signature, byte[] data) {
-		int result = MlDsaCryptography.verify_with_ml_dsa([..RawKey], RawKey.Length, data, (ulong) data.LongLength, signature, (uint) signature.Length);
+	public bool Verify(byte[] signature, byte[] data, AesKey[]? aesKeys = null) {
+		aesKeys ??= [];
+		
+		using IntPtrConversionScope scope = new (aesKeys);
+		int result = MlDsaCryptography.verify_with_ml_dsa([..RawKey], RawKey.Length, data, (ulong) data.LongLength, scope.Pointers, scope.Pointers.Length, signature, (uint) signature.Length);
 		if (result == -1)
 			throw new InvalidOperationException("Data could not be verified");
 

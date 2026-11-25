@@ -1,4 +1,5 @@
 using Nockx.Base.CryptographyTypes.Aes;
+using Nockx.Base.Util;
 
 namespace Nockx.Base.CryptographyTypes.Rsa;
 
@@ -30,8 +31,11 @@ public sealed class RsaPublicKey : PublicKey {
 		}
 	}
 
-	public bool Verify(byte[] signature, byte[] data) {
-		int result = RsaCryptography.verify_with_rsa([..RawKey], RawKey.Length, data, (ulong) data.LongLength, signature, (uint) signature.Length);
+	public bool Verify(byte[] signature, byte[] data, AesKey[]? aesKeys = null) {
+		aesKeys ??= [];
+		
+		using IntPtrConversionScope scope = new (aesKeys);
+		int result = RsaCryptography.verify_with_rsa([..RawKey], RawKey.Length, data, (ulong) data.LongLength, scope.Pointers, scope.Pointers.Length, signature, (uint) signature.Length);
 		if (result == -1)
 			throw new InvalidOperationException("Data could not be verified");
 

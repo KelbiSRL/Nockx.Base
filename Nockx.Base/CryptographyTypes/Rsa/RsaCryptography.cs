@@ -8,11 +8,11 @@ internal static partial class RsaCryptography {
 	internal static unsafe partial IntPtr encrypt_aes_key_with_rsa([In] byte[] publicRsaKey, uint keySize, AesKey aesKey, uint *ciphertextLength);
 
 	[LibraryImport("libnockx-base")]
-	internal static unsafe partial AesKey decrypt_aes_key_with_rsa(RsaKey privateRsaKey, [In] byte[] ciphertext, uint ciphertextLength);
+	internal static partial AesKey decrypt_aes_key_with_rsa(RsaKey privateRsaKey, [In] byte[] ciphertext, uint ciphertextLength);
 
 	[LibraryImport("libnockx-base")]
-	internal static unsafe partial IntPtr sign_with_rsa(RsaKey privateRsaKey, [In] byte[] data, ulong dataSize, ulong *signatureSize);
+	internal static unsafe partial IntPtr sign_with_rsa(RsaKey privateRsaKey, [In] byte[] data, ulong dataSize, [In] IntPtr[] aesKeys, int amountAesKeys, ulong *signatureSize);
 
 	[LibraryImport("libnockx-base")]
-	internal static unsafe partial int verify_with_rsa([In] byte[] publicRsaKey, int keySize, [In] byte[] data, ulong dataSize, [In] byte[] signature, uint signatureSize);
+	internal static partial int verify_with_rsa([In] byte[] publicRsaKey, int keySize, [In] byte[] data, ulong dataSize, [In] IntPtr[] aesKeys, int amountAesKeys, [In] byte[] signature, uint signatureSize);
 }

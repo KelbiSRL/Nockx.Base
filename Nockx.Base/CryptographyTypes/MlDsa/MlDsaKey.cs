@@ -1,3 +1,6 @@
+using Nockx.Base.CryptographyTypes.Aes;
+using Nockx.Base.Util;
+
 namespace Nockx.Base.CryptographyTypes.MlDsa;
 
 public sealed class MlDsaKey : AsymmetricKey {
@@ -7,9 +10,8 @@ public sealed class MlDsaKey : AsymmetricKey {
 
 	public new MlDsaPublicKey Public => (MlDsaPublicKey) base.Public;
 	
-	public MlDsaKey() {
-		
-	}
+	/// <inheritdoc/>
+	public MlDsaKey() { }
 	
 	public static void GenerateKeyFile() {
 		if (HelperFunctions.generate_key(KeyType) == 0)
@@ -24,9 +26,12 @@ public sealed class MlDsaKey : AsymmetricKey {
 		return mlDsaKey.IsInvalid ? throw new InvalidOperationException("ML-DSA private key could not be read") : mlDsaKey;
 	}
 	
-	public unsafe byte[] Sign(byte[] data) {
+	public unsafe byte[] Sign(byte[] data, AesKey[]? aesKeys = null) {
+		aesKeys ??= [];
+		
+		using IntPtrConversionScope scope = new (aesKeys);
 		ulong signatureSize;
-		IntPtr signaturePointer = MlDsaCryptography.sign_with_ml_dsa(this, data, (ulong) data.LongLength, &signatureSize);
+		IntPtr signaturePointer = MlDsaCryptography.sign_with_ml_dsa(this, data, (ulong) data.LongLength, scope.Pointers, scope.Pointers.Length, &signatureSize);
 		if (signaturePointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be signed with ML-DSA");
 
@@ -41,5 +46,5 @@ public sealed class MlDsaKey : AsymmetricKey {
 		}
 	}
 
-	public bool Verify(byte[] signature, byte[] data) => Public.Verify(signature, data);
+	public bool Verify(byte[] signature, byte[] data, AesKey[]? aesKeys = null) => Public.Verify(signature, data, aesKeys);
 }

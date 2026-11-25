@@ -1,4 +1,5 @@
 using Nockx.Base.CryptographyTypes.Aes;
+using Nockx.Base.Util;
 
 namespace Nockx.Base.CryptographyTypes.Rsa;
 
@@ -9,9 +10,8 @@ public sealed class RsaKey : AsymmetricKey {
 	
 	public new RsaPublicKey Public => (RsaPublicKey) base.Public;
 
-	public RsaKey() {
-		
-	}
+	/// <inheritdoc/>
+	public RsaKey() { }
 
 	public static void GenerateKeyFile() {
 		if (HelperFunctions.generate_key(KeyType) == 0)
@@ -33,9 +33,12 @@ public sealed class RsaKey : AsymmetricKey {
 		return aesKey.IsInvalid ? throw new InvalidOperationException("AES key could not be decrypted with RSA") : aesKey;
 	}
 
-	public unsafe byte[] Sign(byte[] data) {
+	public unsafe byte[] Sign(byte[] data, AesKey[]? aesKeys = null) {
+		aesKeys ??= [];
+		
+		using IntPtrConversionScope scope = new (aesKeys);
 		ulong signatureSize;
-		IntPtr signaturePointer = RsaCryptography.sign_with_rsa(this, data, (ulong) data.LongLength, &signatureSize);
+		IntPtr signaturePointer = RsaCryptography.sign_with_rsa(this, data, (ulong) data.LongLength, scope.Pointers, scope.Pointers.Length, &signatureSize);
 		if (signaturePointer == IntPtr.Zero)
 			throw new InvalidOperationException("Data could not be signed with RSA");
 
@@ -49,6 +52,6 @@ public sealed class RsaKey : AsymmetricKey {
 			HelperFunctions.free_openssl_pointer((void *) signaturePointer, signatureSize);
 		}
 	}
-
-	public bool Verify(byte[] signature, byte[] data) => Public.Verify(signature, data);
+	
+	public bool Verify(byte[] signature, byte[] data, AesKey[]? aesKeys = null) => Public.Verify(signature, data, aesKeys);
 }
